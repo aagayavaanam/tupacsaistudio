@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "members": {
+      "title": "Members",
+      "description": "KCC Farmers and Members Database",
+      "type": "object",
+      "properties": {
+        "memberNo": { "type": "string" },
+        "name": { "type": "string" },
+        "sb": { "type": "string" },
+        "erp": { "type": "string" },
+        "ins": { "type": "string" },
+        "careOf": { "type": "string" },
+        "door": { "type": "string" },
+        "street": { "type": "string" },
+        "village": { "type": "string" },
+        "aadharNo": { "type": "string" },
+        "mobile": { "type": "string" },
+        "rationCard": { "type": "string" },
+        "namini": { "type": "string" },
+        "relation": { "type": "string" },
+        "mdcc": { "type": "string" },
+        "caste": { "type": "string" },
+        "gender": { "type": "string" },
+        "totalShare": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["memberNo"]
+    },
+    "paduvada": {
+      "title": "Paduvada Loans",
+      "description": "Disbursement records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rclNumber": { "type": "string" },
+        "currentDisbNo": { "type": "string" },
+        "aClass": { "type": "string" },
+        "name": { "type": "string" },
+        "totalLoanAmount": { "type": "string" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["aClass"]
+    },
+    "bank_sheet": {
+      "title": "KCC Bank Sheet",
+      "description": "KCC Bank account transactions and calculations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "memberPayment": { "type": "number" },
+        "disbursementMemberCount": { "type": "number" },
+        "disbursementAmount": { "type": "number" },
+        "bankPayment": { "type": "number" },
+        "bankLevelBalance": { "type": "number" },
+        "memberLevelTotal": { "type": "number" },
+        "totalMemberCount": { "type": "number" },
+        "totalDisbursedAmount": { "type": "number" },
+        "netMeasure": { "type": "number" },
+        "bankOutstandingStatus": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["date"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "App settings",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["key"]
+    }
+  }
+}

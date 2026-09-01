@@ -1,0 +1,6 @@
+{
+  "name": "TU3 PACCS",
+  "description": "Primary Agricultural Co-operative Credit Society (PACS) KCC Disbursement & Member Data System (பட்டுவாடா மேலாண்மை அமைப்பு)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
