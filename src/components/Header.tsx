@@ -52,6 +52,12 @@ export const Header: React.FC<HeaderProps> = ({
         return 'கூகுள் சீட் இணைப்பு (Google Sheet Sync)';
       case 'print-reports':
         return 'அச்சுப் படிவங்கள் மற்றும் அறிக்கைகள் (KCC 1 Form)';
+      case 'kcc-application':
+        return 'KCC Application - கடன் விண்ணப்பப் படிவம்';
+      case 'ah-application':
+        return 'AH Application - கால்நடை பராமரிப்பு கடன் விண்ணப்பப் படிவம்';
+      case 'storage':
+        return 'சேமிப்பகம் (Storage)';
       default:
         return 'மேலாண்மை மேடை';
     }

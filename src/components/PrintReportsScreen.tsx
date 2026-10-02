@@ -586,27 +586,74 @@ export const PrintReportsScreen: React.FC<PrintReportsScreenProps> = ({
 
   // Generate HTML for 4. Insurance (காப்பீடு) Print matching user uploaded document exactly
   const generateInsurancePrintHtml = () => {
+    const printRows = editableInsuranceRows.filter(r => {
+      const val = parseFloat(String(r.subscription || '0').replace(/[^0-9.]/g, '')) || 0;
+      return val > 0;
+    });
+
+    const activeDisbDisplay = filterDisbNo === 'all' ? disbursementNo : filterDisbNo;
+    const totalSub = printRows.reduce((acc, row) => {
+      const val = parseFloat(String(row.subscription || '0').replace(/[^0-9.]/g, '')) || 0;
+      return acc + val;
+    }, 0);
+
     return `
       <div style="width: 100%; max-width: 100%; color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #ffffff; padding: 0;">
-        <!-- 1. Two-Column Sender & Receiver Header (அனுப்புநர் & பெறுநர்) matching PDF -->
-        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13px;">
+        <!-- 1. Top Header Matching Uploaded PDF -->
+        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12.5px;">
           <tbody>
             <tr>
-              <td style="width: 50%; border: 1.5px solid #000000; padding: 8px 12px; vertical-align: top;">
-                <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 8px; font-size: 13px; color: #000000;">
+              <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 14.5px; padding: 4px 6px;">
+                ${paccsName}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                ${paccsAddress}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 13.5px; padding: 4px 6px;">
+                KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்
+              </td>
+            </tr>
+            <tr>
+              <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                மத்திய வங்கி RCL No: ${insRclNo || rclNo} &nbsp;&nbsp;&nbsp;&nbsp; நாள்:${insRclDate || rclDate}
+              </td>
+            </tr>
+            <tr style="height: 28px;">
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான எண்</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${resolutionNo}</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான தேதி</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${resolutionDate}</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா எண்</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${activeDisbDisplay}</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா தேதி</td>
+              <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${disbursementDate}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 2. Two-Column Sender & Receiver Header (அனுப்புநர் & பெறுநர்) matching PDF -->
+        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12px;">
+          <tbody>
+            <tr>
+              <td style="width: 50%; border: 1.5px solid #000000; padding: 6px 12px; vertical-align: top;">
+                <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 6px; font-size: 12px; color: #000000;">
                   அனுப்புநர்
                 </div>
-                <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 13px;">
+                <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 12px;">
                   <div>${insSenderRole}</div>
                   <div>${insSenderSociety}</div>
                   <div>${insSenderPlace}</div>
                 </div>
               </td>
-              <td style="width: 50%; border: 1.5px solid #000000; padding: 8px 12px; vertical-align: top;">
-                <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 8px; font-size: 13px; color: #000000;">
+              <td style="width: 50%; border: 1.5px solid #000000; padding: 6px 12px; vertical-align: top;">
+                <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 6px; font-size: 12px; color: #000000;">
                   பெறுநர்
                 </div>
-                <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 13px;">
+                <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 12px;">
                   <div>${insReceiverRole}</div>
                   <div>${insReceiverBank}</div>
                   <div>${insReceiverSub}</div>
@@ -617,71 +664,79 @@ export const PrintReportsScreen: React.FC<PrintReportsScreenProps> = ({
           </tbody>
         </table>
 
-        <!-- 2. RCL No, Date & Title Banner matching PDF -->
-        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13.5px;">
+        <!-- 3. RCL No, Date & Title Banner matching PDF -->
+        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13px;">
           <tbody>
-            <tr style="border-bottom: 1.5px solid #000000;">
-              <td style="padding: 5px 12px; font-weight: 900; text-align: center;">
-                <span>மத்திய வங்கி RCL No: ${insRclNo}</span> &nbsp;&nbsp;&nbsp;&nbsp; <span>நாள்:${insRclDate}</span>
-              </td>
-            </tr>
             <tr>
-              <td style="padding: 6px 12px; font-weight: 900; text-align: center; font-size: 14.5px; letter-spacing: 0.3px;">
+              <td style="padding: 6px 12px; font-weight: 900; text-align: center; font-size: 14px; letter-spacing: 0.3px;">
                 ${insBannerTitle}
               </td>
             </tr>
           </tbody>
         </table>
 
-        <!-- 3. Insurance Details 13-Column Table matching PDF exactly -->
-        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11.5px; margin-bottom: 0;">
+        <!-- 4. Insurance Details 13-Column Table matching PDF exactly -->
+        <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0; table-layout: fixed;">
           <thead>
             <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 2px; width: 4.5%;">வ எண்</th>
-              <th colspan="5" style="border: 1.5px solid #000000; padding: 6px 2px;">உறுப்பினர் விபரம்</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 14%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 8.5%;">கிராமம்</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 11%;">குடும்ப<br/>அட்டை<br/>எண்</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 8.5%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 11%;">நாமினியின்<br/>பெயர்</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 2px; width: 6%;">உறவு</th>
-              <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 7.5%;">சந்தாத்<br/>தொகை</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 3.5%;">வ எண்</th>
+              <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 2px; width: 35%;">உறுப்பினர் விபரம்</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 13%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 8.5%;">கிராமம்</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 12%;">குடும்ப<br/>அட்டை<br/>எண்</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 7%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 10%;">நாமினியின்<br/>பெயர்</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 4.5%;">உறவு</th>
+              <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 6.5%;">சந்தாத்<br/>தொகை</th>
             </tr>
             <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
               <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5.5%;">அ எண்</th>
-              <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6.5%;">SB எண்</th>
+              <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 7%;">SB எண்</th>
               <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6%;">ERP</th>
-              <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5%;">Initial</th>
-              <th style="border: 1.5px solid #000000; padding: 4px 4px; width: 11%;">பெயர்</th>
+              <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 4.5%;">Initial</th>
+              <th style="border: 1.5px solid #000000; padding: 4px 3px; width: 12%;">பெயர்</th>
             </tr>
           </thead>
-          <tbody style="font-weight: 600; font-size: 11.5px;">
-            ${editableInsuranceRows.map((r, idx) => `
+          <tbody style="font-weight: 600; font-size: 11px;">
+            ${printRows.map((r, idx) => `
               <tr>
-                <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${r.aNo || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center;">${r.sb || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center;">${r.ins || '-'}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left; font-weight: bold;">${r.name || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left;">${r.fatherOrHusbandName || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${r.village || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center; font-family: monospace; font-size: 11px;">${r.rationCard || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${r.disability || 'இல்லை'}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left;">${r.namini || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${r.relation || ''}</td>
-                <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: center; font-weight: bold;">${r.subscription !== undefined && r.subscription !== '' ? r.subscription : '0'}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.aNo || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.sb || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.ins || '-'}</td>
+                <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left; font-weight: bold;">${r.name || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${r.fatherOrHusbandName || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.village || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-family: monospace; font-size: 10.5px;">${r.rationCard || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.disability || '0'}</td>
+                <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${r.namini || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.relation || ''}</td>
+                <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.subscription !== undefined && r.subscription !== '' ? r.subscription : '0'}</td>
               </tr>
             `).join('')}
             <!-- Bottom Grand Total Row matching PDF -->
             <tr style="font-weight: 900; border-top: 2px solid #000000;">
-              <td colspan="12" style="border: 1.5px solid #000000; padding: 6px 10px; text-align: right;"></td>
-              <td style="border: 1.5px solid #000000; padding: 6px 4px; text-align: center; font-weight: 900; font-size: 13px;">
-                ${insuranceTotalSubscription > 0 ? insuranceTotalSubscription.toLocaleString('en-IN') : '0'}
+              <td colspan="12" style="border: 1px solid #000000; padding: 5px 8px; text-align: right; font-weight: 900;">மொத்தம்</td>
+              <td style="border: 1px solid #000000; padding: 5px 2px; text-align: center; font-weight: 900; font-size: 12.5px;">
+                ${totalSub > 0 ? totalSub.toLocaleString('en-IN') : '0'}
               </td>
             </tr>
           </tbody>
         </table>
+
+        <!-- Signature Block: 3 Column Signatories matching user preferences -->
+        <div style="margin-top: 65px; display: flex; justify-content: space-between; text-align: center; font-weight: bold; font-size: 12.5px; padding: 0 20px; page-break-inside: avoid;">
+          <div style="width: 28%; text-align: center;">
+            <div>செயலாளர்</div>
+          </div>
+          <div style="width: 38%; text-align: center;">
+            <div>தலைவர் / செயலாட்சியர்</div>
+          </div>
+          <div style="width: 28%; text-align: center;">
+            <div>வட்டார மேற்பார்வையாளர்</div>
+          </div>
+        </div>
       </div>
     `;
   };
@@ -3366,7 +3421,7 @@ export const PrintReportsScreen: React.FC<PrintReportsScreenProps> = ({
                 </button>
               </div>
 
-              <div id="printable-kcc1-area" className="overflow-x-auto">
+              <div id="printable-excel-area" className="overflow-x-auto">
                 <div className="text-center mb-4 pb-2 border-b border-stone-800">
                   <h3 className="font-black text-lg text-stone-900 uppercase">{uploadedFileName.replace(/\.[^/.]+$/, '')}</h3>
                   <p className="text-xs text-stone-600 font-bold">PACS அச்சு அறிக்கை | தேதி: {formDate}</p>

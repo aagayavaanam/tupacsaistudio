@@ -217,7 +217,7 @@ export const Part1RCLForm: React.FC<Part1RCLFormProps> = ({
               </p>
             )}
             <p className="text-[11px] text-slate-500">
-              கேசிசி கடனுக்கு स्वीकृत ஒப்புதல் தொகை (ரூபாயில்)
+              கேசிசி கடனுக்கு அனுமதிக்கப்பட்ட ஒப்புதல் தொகை (ரூபாயில்)
             </p>
           </div>
         </div>

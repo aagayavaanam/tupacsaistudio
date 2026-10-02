@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home,
   CreditCard, 
@@ -8,7 +8,11 @@ import {
   ChevronRight, 
   FileCheck2,
   CheckCircle2,
-  Calculator
+  Calculator,
+  Database,
+  FileText,
+  ScrollText,
+  Printer
 } from 'lucide-react';
 import { NavigationMenu } from '../types';
 
@@ -40,9 +44,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentMenu === 'ah-disbursement' || currentMenu === 'ah-bank-account'
   );
 
+  // Application menu expand/collapse state (KCC Application & AH Application)
+  const [isApplicationExpanded, setIsApplicationExpanded] = useState<boolean>(
+    currentMenu === 'kcc-application' || currentMenu === 'ah-application'
+  );
+
+  useEffect(() => {
+    if (currentMenu === 'kcc-application' || currentMenu === 'ah-application') {
+      setIsApplicationExpanded(true);
+    }
+  }, [currentMenu]);
+
   const handleSelectOtherMenu = (menu: NavigationMenu) => {
     setIsPattuvadaExpanded(false);
     setIsAhExpanded(false);
+    setIsApplicationExpanded(false);
     onSelectMenu(menu);
   };
 
@@ -52,6 +68,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleAhClick = () => {
     setIsAhExpanded(prev => !prev);
+  };
+
+  const handleApplicationClick = () => {
+    setIsApplicationExpanded(prev => !prev);
   };
 
   return (
@@ -250,6 +270,82 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           )}
+        </div>
+
+        {/* Main Menu Item: விண்ணப்பம் (Application) */}
+        <div className="pt-2 border-t border-[#E2E2DC]">
+          <button
+            onClick={handleApplicationClick}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+              currentMenu === 'kcc-application' || currentMenu === 'ah-application'
+                ? 'bg-[#D1EAE0]/70 text-[#007A4D] border border-[#007A4D]/30'
+                : 'text-stone-700 hover:bg-[#EAF4EF] hover:text-[#007A4D]'
+            }`}
+            title="விண்ணப்பம் (Application)"
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-[#007A4D] shrink-0" />
+              {isOpen && <span>விண்ணப்பம்</span>}
+            </div>
+            {isOpen && (
+              <span className="text-stone-500">
+                {isApplicationExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </span>
+            )}
+          </button>
+
+          {/* Sub-menu options under விண்ணப்பம் */}
+          {isApplicationExpanded && (
+            <div className={`mt-1 space-y-1 ${isOpen ? 'pl-4' : 'pl-0'}`}>
+              {/* Sub-menu 1: KCC Application */}
+              <button
+                onClick={() => onSelectMenu('kcc-application')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentMenu === 'kcc-application'
+                    ? 'bg-[#007A4D] text-white shadow-xs'
+                    : 'text-stone-600 hover:text-[#007A4D] hover:bg-[#EAF4EF]'
+                }`}
+                title="KCC Application"
+              >
+                <FileCheck2 className="w-4 h-4 shrink-0" />
+                {isOpen && <span>KCC Application</span>}
+              </button>
+
+              {/* Sub-menu 2: AH Application */}
+              <button
+                onClick={() => onSelectMenu('ah-application')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentMenu === 'ah-application'
+                    ? 'bg-[#007A4D] text-white shadow-xs'
+                    : 'text-stone-600 hover:text-[#007A4D] hover:bg-[#EAF4EF]'
+                }`}
+                title="AH Application"
+              >
+                <FileCheck2 className="w-4 h-4 shrink-0" />
+                {isOpen && <span>AH Application</span>}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 6. Main Menu Item: சேமிப்பகம் (Storage) */}
+        <div className="pt-2 border-t border-[#E2E2DC]">
+          <button
+            onClick={() => handleSelectOtherMenu('storage')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+              currentMenu === 'storage'
+                ? 'bg-[#007A4D] text-white shadow-sm'
+                : 'text-stone-700 hover:bg-[#EAF4EF] hover:text-[#007A4D]'
+            }`}
+            title="சேமிப்பகம்"
+          >
+            <Database className={`w-5 h-5 shrink-0 ${currentMenu === 'storage' ? 'text-white' : 'text-[#007A4D]'}`} />
+            {isOpen && <span>சேமிப்பகம்</span>}
+          </button>
         </div>
 
       </div>

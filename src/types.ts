@@ -95,6 +95,9 @@ export type NavigationMenu =
   | 'kcc-bank-account' 
   | 'ah-disbursement' 
   | 'ah-bank-account' 
+  | 'kcc-application'
+  | 'ah-application'
   | 'google-sheet-sync' 
-  | 'print-reports';
+  | 'print-reports'
+  | 'storage';
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HomeScreen } from './components/HomeScreen';
+import { StorageScreen } from './components/StorageScreen';
 import { KCCDisbursementScreen } from './components/KCCDisbursementScreen';
 import { KCCBankAccountScreen } from './components/KCCBankAccountScreen';
 import { AHDisbursementScreen } from './components/AHDisbursementScreen';
@@ -12,6 +13,8 @@ import { PrintReportsScreen } from './components/PrintReportsScreen';
 import { CropLoanInterestScreen } from './components/CropLoanInterestScreen';
 import { JewelLoanInterestScreen } from './components/JewelLoanInterestScreen';
 import { SHGLoanInterestScreen } from './components/SHGLoanInterestScreen';
+import { KCCApplicationScreen } from './components/KCCApplicationScreen';
+import { AHApplicationScreen } from './components/AHApplicationScreen';
 import { 
   LoanMember, 
   KCCDisbursementRecord, 
@@ -207,7 +210,11 @@ export default function App() {
         {/* View Router */}
         <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto pb-16">
           {currentMenu === 'home' && (
-            <HomeScreen
+            <HomeScreen />
+          )}
+
+          {currentMenu === 'storage' && (
+            <StorageScreen
               members={members}
               disbursements={disbursements}
               bankAccounts={bankAccounts}
@@ -288,6 +295,24 @@ export default function App() {
               onSetSpreadsheetId={setSpreadsheetId}
               members={members}
               disbursements={disbursements}
+            />
+          )}
+
+          {currentMenu === 'kcc-application' && (
+            <KCCApplicationScreen
+              members={members}
+              disbursements={disbursements}
+              spreadsheetId={spreadsheetId}
+              onAddNewMember={() => setCurrentMenu('loan-member-master')}
+            />
+          )}
+
+          {currentMenu === 'ah-application' && (
+            <AHApplicationScreen
+              members={members}
+              disbursements={disbursements}
+              spreadsheetId={spreadsheetId}
+              onAddNewMember={() => setCurrentMenu('loan-member-master')}
             />
           )}
 

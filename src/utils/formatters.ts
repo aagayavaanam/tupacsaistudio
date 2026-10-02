@@ -209,3 +209,80 @@ export function formatAcres(val?: number | string | null): string {
   return num.toFixed(2);
 }
 
+/**
+ * Converts numeric amount to Tamil words (e.g. 160000 -> "ஒரு லட்சம் அறுபதாயிரம்")
+ */
+export function numberToTamilWords(amount: number | string): string {
+  const cleanStr = String(amount).replace(/[^0-9.-]/g, '');
+  const n = Math.round(Math.abs(parseFloat(cleanStr)));
+  if (!n || isNaN(n) || n === 0) return 'பூஜ்ஜியம்';
+
+  const units = ['', 'ஒன்று', 'இரண்டு', 'மூன்று', 'நான்கு', 'ஐந்து', 'ஆறு', 'ஏழு', 'எட்டு', 'ஒன்பது'];
+  const tensPrefix = ['', 'பத்து', 'இருபத்து', 'முப்பத்து', 'நாற்பத்து', 'ஐம்பத்து', 'அறுபத்து', 'எழுபத்து', 'எண்பத்து', 'தொண்ணூற்று'];
+  const tensExact = ['', 'பத்து', 'இருபது', 'முப்பது', 'நாற்பது', 'ஐம்பது', 'அறுபது', 'எழுபது', 'எண்பது', 'தொண்ணூறு'];
+  const teens = ['பத்து', 'பதினொன்று', 'பன்னிரண்டு', 'பதின்மூன்று', 'பதினான்கு', 'பதினைந்து', 'பதினாறு', 'பதினேழு', 'பதினெட்டு', 'பத்தொன்பது'];
+  const hundredsExact = ['', 'நூறு', 'இருநூறு', 'முந்நூறு', 'நானூறு', 'ஐந்நூறு', 'அறுநூறு', 'எழுநூறு', 'எண்ணூறு', 'தொள்ளாயிரம்'];
+  const hundredsPrefix = ['', 'நூற்று', 'இருநூற்று', 'முந்நூற்று', 'நானூற்று', 'ஐந்நூற்று', 'அறுநூற்று', 'எழுநூற்று', 'எண்ணூற்று', 'தொள்ளாயிரத்து'];
+
+  function convertTwoDigits(num: number): string {
+    if (num === 0) return '';
+    if (num < 10) return units[num];
+    if (num < 20) return teens[num - 10];
+    const t = Math.floor(num / 10);
+    const u = num % 10;
+    if (u === 0) return tensExact[t];
+    return tensPrefix[t] + ' ' + units[u];
+  }
+
+  function convertThreeDigits(num: number): string {
+    let result = '';
+    const h = Math.floor(num / 100);
+    const rest = num % 100;
+    if (h > 0) {
+      if (rest === 0) {
+        return hundredsExact[h];
+      }
+      result += hundredsPrefix[h] + ' ';
+    }
+    if (rest > 0) {
+      result += convertTwoDigits(rest);
+    }
+    return result.trim();
+  }
+
+  const parts: string[] = [];
+  const crore = Math.floor(n / 10000000);
+  let rem = n % 10000000;
+  const lakh = Math.floor(rem / 100000);
+  rem = rem % 100000;
+  const thousand = Math.floor(rem / 1000);
+  rem = rem % 1000;
+
+  if (crore > 0) {
+    if (crore === 1) {
+      parts.push('ஒரு கோடி');
+    } else {
+      parts.push(convertThreeDigits(crore) + ' கோடி');
+    }
+  }
+  if (lakh > 0) {
+    if (lakh === 1) {
+      parts.push('ஒரு லட்சம்');
+    } else {
+      parts.push(convertThreeDigits(lakh) + ' லட்சம்');
+    }
+  }
+  if (thousand > 0) {
+    if (thousand === 1) {
+      parts.push('ஆயிரம்');
+    } else {
+      parts.push(convertThreeDigits(thousand) + ' ஆயிரம்');
+    }
+  }
+  if (rem > 0) {
+    parts.push(convertThreeDigits(rem));
+  }
+
+  return parts.join(' ').trim() || 'பூஜ்ஜியம்';
+}
+

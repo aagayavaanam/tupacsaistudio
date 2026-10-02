@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LoanMember, 
   KCCDisbursementRecord, 
@@ -578,23 +578,15 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
         if (data.maxDisbNo) {
           setLastDisbNo(data.maxDisbNo);
         }
-        if (Array.isArray(data.data) && data.data.length > 0) {
-          setAddedItems(data.data);
-        }
       }
     } catch (err) {
       console.error('Fetch max disb no error:', err);
     }
   };
 
-  // Initial load from Google Sheet
+  // Initial load: Only fetch max disbursement number
   useEffect(() => {
     fetchLastDisbNo();
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-    if ((targetSheetId || targetScriptUrl) && filterDisbNo.trim() !== '') {
-      handleSearchByDisbNo(filterDisbNo);
-    }
   }, []);
 
   const PRINT_FORMS = [
@@ -1360,292 +1352,296 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
-    // SPECIAL HANDLING FOR 3. CROPWISE (பயிர் வாரியாக)
-    if (formTitle.includes('Cropwise') || formTitle.includes('பயிர் வாரியாக')) {
-      const calcNew = printItems.filter(i => (i as any).isNew || (i as any).memberType === 'new').reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcScst = printItems.filter(i => {
-        const caste = ((i as any).caste || '').toUpperCase();
-        return caste.includes('SC') || caste.includes('ST');
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const totalLoanOverall = printItems.reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcOthers = (totalLoanOverall > 0 && calcScst > 0) ? (totalLoanOverall - calcScst) : (totalLoanOverall > 0 ? totalLoanOverall : 0);
-      const calcSfmf = printItems.filter(i => {
-        const acres = parseFloat(String(i.acres || 0)) || 0;
-        return acres > 0 && acres <= 5.0;
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcOf = printItems.filter(i => {
-        const acres = parseFloat(String(i.acres || 0)) || 0;
-        return acres > 5.0;
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcFemale = printItems.filter(i => {
-        const gender = ((i as any).gender || '').toLowerCase();
-        return gender.includes('f') || gender.includes('பெண்') || gender.includes('female');
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
+    // SPECIAL HANDLING FOR 3. LIVESTOCKWISE (கால்நடை வாரியாக)
+    if (formTitle.includes('Livestockwise') || formTitle.includes('கால்நடை வாரியாக') || formTitle.includes('Cropwise') || formTitle.includes('பயிர் வாரியாக')) {
+      const activeDisbNumber = filterDisbNo || currentDisbNo || '1';
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '05-09-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/P1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
 
-      // Crop aggregation - ONLY distinct crops recorded in current disbursement
-      const cropMap = new Map<string, {
-        count: number;
-        acres: number;
-        seed: number;
-        chem: number;
-        comp: number;
-        pest: number;
-        cash: number;
-        totalLoan: number;
+      // 1. Calculate Claimants Breakdown (பட்டுவாடா கோருபவர்கள் விபரம்)
+      let calcNewCount = 0;
+      let calcNewAmt = 0;
+      let calcScstCount = 0;
+      let calcScstAmt = 0;
+      let calcOthersCount = 0;
+      let calcOthersAmt = 0;
+      let calcFemaleCount = 0;
+      let calcFemaleAmt = 0;
+
+      printItems.forEach(item => {
+        const loanAmt = getItemLoanAmount(item);
+        const prevAmt = parseFloat(String(item.prevLoanAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+        const aClassKey = String(item.aClass || item.aNo || item.memberNo || '').trim().toLowerCase();
+        
+        const matchingMember = members?.find(m => 
+          (m.aClass && m.aClass.trim().toLowerCase() === aClassKey) ||
+          (m.memberNo && m.memberNo.trim().toLowerCase() === aClassKey) ||
+          (m.name && item.name && m.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+        );
+
+        // New Member classification
+        const isNew = item.memberStatus === 'புதிய உறுப்பினர்' ||
+          (item as any).isNew === true ||
+          (item as any).memberType === 'new' ||
+          (matchingMember as any)?.memberStatus === 'புதிய உறுப்பினர்' ||
+          (!item.prevLoanNo || item.prevLoanNo === 'AH -' || item.prevLoanNo === '-' || prevAmt === 0);
+
+        if (isNew) {
+          calcNewCount += 1;
+          calcNewAmt += loanAmt;
+        }
+
+        // SC/ST Member classification
+        const casteStr = ((item.caste || item.category || (matchingMember as any)?.caste || '') + '').toUpperCase();
+        const isScst = casteStr.includes('SC') || casteStr.includes('ST') || casteStr.includes('எஸ்.சி') || casteStr.includes('எஸ்.டி');
+
+        if (isScst) {
+          calcScstCount += 1;
+          calcScstAmt += loanAmt;
+        } else {
+          calcOthersCount += 1;
+          calcOthersAmt += loanAmt;
+        }
+
+        // Female Member classification
+        const genderStr = ((item.gender || (matchingMember as any)?.gender || '') + '').toLowerCase();
+        const relationStr = ((item.relation || (matchingMember as any)?.relation || '') + '').toLowerCase();
+        const isFemale = genderStr.includes('f') || genderStr.includes('பெண்') || genderStr.includes('female') || genderStr === 'w' ||
+          relationStr.includes('மனைவி') || relationStr.includes('wife') || relationStr.includes('மகள்') || relationStr.includes('daughter');
+
+        if (isFemale) {
+          calcFemaleCount += 1;
+          calcFemaleAmt += loanAmt;
+        }
+      });
+
+      // 2. Group Livestockwise (கால்நடை வாரியாக)
+      const livestockMap = new Map<string, {
+        memberCount: number;
+        livestockCount: number;
+        loanAmount: number;
       }>();
 
       printItems.forEach(item => {
-        const cropName = (item.crop || '').trim();
-        if (!cropName || cropName === '-') return;
+        let lType = (item.livestockType || item.crop || 'மாடுகள்').trim();
+        if (!lType || lType === '-') lType = 'மாடுகள்';
 
-        const chemAmt = parseFloat(String(item.chemicalFertilizer || item.fertilizer || '0').replace(/[^0-9.]/g, '')) || 0;
-        const compAmt = parseFloat(String(item.fertilizerKind || item.compost || '0').replace(/[^0-9.]/g, '')) || 0;
-        const pestAmt = parseFloat(String(item.pesticide || '0').replace(/[^0-9.]/g, '')) || 0;
-        const cashAmt = parseFloat(String(item.organicFertilizer || item.cash || '0').replace(/[^0-9.]/g, '')) || 0;
-        const seedAmt = parseFloat(String((item as any).seed || '0').replace(/[^0-9.]/g, '')) || 0;
+        const countVal = item.livestockCount !== undefined && item.livestockCount !== null && item.livestockCount !== ''
+          ? (parseFloat(String(item.livestockCount).replace(/[^0-9.]/g, '')) || 0)
+          : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? (parseFloat(String(item.acres).replace(/[^0-9.]/g, '')) || 0) : 1);
+
         const loanAmt = getItemLoanAmount(item);
-        const acresVal = parseFloat(item.acres || '0') || 0;
 
-        const existing = cropMap.get(cropName) || {
-          count: 0,
-          acres: 0,
-          seed: 0,
-          chem: 0,
-          comp: 0,
-          pest: 0,
-          cash: 0,
-          totalLoan: 0
+        const existing = livestockMap.get(lType) || {
+          memberCount: 0,
+          livestockCount: 0,
+          loanAmount: 0
         };
 
-        existing.count += 1;
-        existing.acres += acresVal;
-        existing.seed += seedAmt;
-        existing.chem += chemAmt;
-        existing.comp += compAmt;
-        existing.pest += pestAmt;
-        existing.cash += cashAmt;
-        existing.totalLoan += loanAmt;
-        cropMap.set(cropName, existing);
+        existing.memberCount += 1;
+        existing.livestockCount += countVal;
+        existing.loanAmount += loanAmt;
+        livestockMap.set(lType, existing);
       });
 
-      const cropRows: Array<{
-        crop: string;
-        count: number;
-        acres: number;
-        seed: number;
-        chem: number;
-        comp: number;
-        pest: number;
-        cash: number;
-        totalLoan: number;
+      const livestockRows: Array<{
+        type: string;
+        memberCount: number;
+        livestockCount: number;
+        loanAmount: number;
       }> = [];
 
-      cropMap.forEach((data, cropName) => {
-        cropRows.push({
-          crop: cropName,
-          ...data
+      livestockMap.forEach((val, type) => {
+        livestockRows.push({
+          type,
+          ...val
         });
       });
 
-      const totCount = cropRows.reduce((sum, r) => sum + r.count, 0);
-      const totAcres = cropRows.reduce((sum, r) => sum + r.acres, 0);
-      const totSeed = cropRows.reduce((sum, r) => sum + r.seed, 0);
-      const totChem = cropRows.reduce((sum, r) => sum + r.chem, 0);
-      const totComp = cropRows.reduce((sum, r) => sum + r.comp, 0);
-      const totPest = cropRows.reduce((sum, r) => sum + r.pest, 0);
-      const totCash = cropRows.reduce((sum, r) => sum + r.cash, 0);
-      const totLoan = cropRows.reduce((sum, r) => sum + r.totalLoan, 0);
+      if (livestockRows.length === 0) {
+        livestockRows.push({
+          type: 'மாடுகள்',
+          memberCount: printItems.length,
+          livestockCount: printItems.length,
+          loanAmount: printItems.reduce((sum, i) => sum + getItemLoanAmount(i), 0)
+        });
+      }
+
+      const totalLivestockLoanSum = livestockRows.reduce((sum, r) => sum + r.loanAmount, 0);
+
+      const livestockRowsHtml = livestockRows.map((r, idx) => `
+        <tr style="height: 32px; text-align: center;">
+          <td style="border: 1px solid black; font-weight: bold; padding: 4px;">${idx + 1}</td>
+          <td style="border: 1px solid black; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.memberCount}</td>
+          <td style="border: 1px solid black; font-size: 13px; font-weight: bold; padding: 4px 8px;">${r.type}</td>
+          <td style="border: 1px solid black; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.livestockCount}</td>
+          <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('');
 
       printWindow.document.write(`
         <!DOCTYPE html>
-        <html lang="ta">
+        <html>
           <head>
-            <meta charset="utf-8" />
-            <title>KCC 1 - பயிர் வாரியான பயிர்க்கடன் விபரம்</title>
+            <title>3. Livestockwise - ${activeDisbNumber}</title>
             <style>
-              @media print {
-                @page {
-                  size: legal landscape;
-                  margin: 5mm;
-                }
-                body {
-                  margin: 0;
-                  padding: 0;
-                  background: white !important;
-                  color: black !important;
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-                .no-print { display: none !important; }
+              @page {
+                size: landscape;
+                margin: 10mm 15mm;
               }
               body {
-                font-family: system-ui, -apple-system, sans-serif;
-                background-color: #ffffff;
-                color: #000000;
-                padding: 12px;
-                font-size: 12px;
+                font-family: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 0;
+                padding: 10px;
+                color: #000;
+                background: #fff;
               }
               table {
-                border-collapse: collapse;
                 width: 100%;
+                border-collapse: collapse;
               }
               th, td {
-                border: 1px solid #000000 !important;
-                padding: 3px 5px;
-                color: #000000 !important;
+                box-sizing: border-box;
+              }
+              @media print {
+                body {
+                  padding: 0;
+                }
               }
             </style>
           </head>
           <body>
-            <div class="no-print" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: #f5f5f4; padding: 10px 14px; border-radius: 8px; border: 1px solid #d6d3d1;">
-              <span style="font-size: 13px; font-weight: bold;">📄 3. Cropwise (பயிர் வாரியான KCC1 பயிர்க்கடன் விபரம்) - அச்சு சாளரம் (Legal Landscape)</span>
-              <button onclick="window.print()" style="background: #007A4D; color: white; font-weight: bold; font-size: 12px; padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer;">
-                🖨️ அச்சிடு (Print Legal Landscape)
-              </button>
+            <!-- 1. Top Header Table (5 Rows Boxed) -->
+            <table style="width: 100%; border: 1.5px solid black; margin-bottom: 12px; font-size: 12px;">
+              <tr>
+                <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 14px; padding: 4px 6px;">
+                  T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                  உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+                </td>
+              </tr>
+              <tr>
+                <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 13.5px; padding: 4px 6px;">
+                  KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                  மத்திய வங்கி RCL No: ${effectiveRclNo} &nbsp;&nbsp; நாள்:${effectiveRclDate}
+                </td>
+              </tr>
+              <tr style="height: 28px;">
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">தீர்மான எண்</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13.5px; width: 11%; text-align: center;">${effectiveResNo}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">தீர்மான தேதி</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13px; width: 15%; text-align: center;">${effectiveResDate}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா எண்</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13.5px; width: 11%; text-align: center;">${activeDisbNumber}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா தேதி</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13px; width: 7%; text-align: center;"></td>
+              </tr>
+            </table>
+
+            <!-- 2. Upper Table: Claimants Breakdown & Branch Remittance (பட்டுவாடா கோருபவர்கள் விபரம்) -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black; font-size: 12px; margin-bottom: 12px;">
+              <thead>
+                <tr style="text-align: center; font-weight: 900; background: #ffffff; height: 32px;">
+                  <th style="border: 1px solid black; padding: 4px; width: 6%;">வ.எண்</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 24%;">பட்டுவாடா கோருபவர்கள் விபரம்</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 12%;">எண்ணிக்கை</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 18%;">தொகை</th>
+                  <th colspan="2" style="border: 1px solid black; padding: 4px; width: 40%;">முன் கடன் வசூலில் கிளையில் இருசால்</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="height: 28px;">
+                  <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">1</td>
+                  <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">புதிய அங்கத்தினர்கள்</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcNewCount > 0 ? calcNewCount : (calcNewAmt > 0 ? 1 : 0)}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcNewAmt > 0 ? calcNewAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; width: 20%; padding: 4px;"></td>
+                  <td style="border: 1px solid black; width: 20%; padding: 4px;"></td>
+                </tr>
+                <tr style="height: 28px;">
+                  <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">2</td>
+                  <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">SC/ST அங்கத்தினர்கள்</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcScstCount > 0 ? calcScstCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcScstAmt > 0 ? calcScstAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                </tr>
+                <tr style="height: 28px;">
+                  <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">3</td>
+                  <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">இதர அங்கத்தினர்கள்</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcOthersCount > 0 ? calcOthersCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcOthersAmt > 0 ? calcOthersAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                </tr>
+                <tr style="height: 28px;">
+                  <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">4</td>
+                  <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">பெண் அங்கத்தினர்கள்</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcFemaleCount > 0 ? calcFemaleCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcFemaleAmt > 0 ? calcFemaleAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                  <td style="border: 1px solid black; padding: 4px;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- 3. Lower Table: Livestockwise Breakdown (கால்நடை வாரியாக) -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black; font-size: 12px; margin-bottom: 12px;">
+              <thead>
+                <tr style="text-align: center; font-weight: 900; background: #ffffff; height: 32px;">
+                  <th style="border: 1px solid black; padding: 4px; width: 6%;">வ.எண்</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 24%;">மொத்த உறுப்பினர்களின் எண்ணிக்கை</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 20%;">கால்நடைகளின் வகை</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 18%;">கால்நடைகளின் எண்ணிக்கை</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 16%;">கடன் தொகை</th>
+                  <th style="border: 1px solid black; padding: 4px; width: 16%;">மொத்தம்</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${livestockRowsHtml}
+                <tr style="font-weight: 900; height: 32px; text-align: center;">
+                  <td colspan="4" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 13.5px; padding: 4px 6px;">ஆகமொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- 4. Certification Box -->
+            <div style="border: 1.5px solid black; padding: 10px 14px; text-align: center; font-size: 13px; font-weight: 800; margin-top: 14px; margin-bottom: 20px;">
+              மேலேகண்ட உறுப்பினர்களின் கால்நடைகளை நேரில் சென்று ஆய்வு செய்தேன் என சான்று செய்கிறோம்
             </div>
 
-            <!-- 1. Header Box Table -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; text-align: center; font-weight: bold; margin-bottom: 6px;">
-              <tbody>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 6px; font-size: 15px; font-weight: 900; text-transform: uppercase;">
-                    T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட்., தேவாரம்
-                  </td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px; font-size: 12.5px; font-weight: bold;">
-                    உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
-                  </td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px; font-size: 13px; font-weight: 900;">
-                    KCC 1 ல் பயிர்க்கடன் பட்டுவாடா விபரம்
-                  </td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px; font-size: 12.5px; font-weight: bold;">
-                    மத்திய வங்கி RCL No: ${rclNumber || '107/25-26/P1'} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; நாள்:${formatDateDDMMYYYY(rclDate) || '15.04.2026'}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- 2. Members Category & Bank Remittance Table (4 Columns, 6 Rows) -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 12px; margin-bottom: 6px;">
-              <thead>
-                <tr style="text-align: center; font-weight: 900;">
-                  <th style="border: 1px solid #000000; padding: 4px; width: 28%;">உறுப்பினர்கள் வகை</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 22%;">தொகை</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 25%;">வங்கி கிளையில்<br/>இருசால் தேதி</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 25%;">வங்கி கிளையில்<br/>இருசால் தொகை</th>
-                </tr>
-              </thead>
-              <tbody style="font-weight: 600;">
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">புதிய உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcNew > 0 ? calcNew.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">SC/ST உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcScst > 0 ? calcScst.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">இதர உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOthers > 0 ? calcOthers.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">SF/MF உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcSfmf > 0 ? calcSfmf.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">OF உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOf > 0 ? calcOf.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 3px 6px;">பெண் உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcFemale > 0 ? calcFemale.toLocaleString('en-IN') : ''}</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- 3. Section Title Banner -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: 6px;">
-              <tbody>
-                <tr>
-                  <td style="border: 1px solid #000000; padding: 4px; text-align: center; font-size: 13px; font-weight: 900; text-transform: uppercase;">
-                    பயிர் வாரியான KCC1 பயிர்க்கடன் விபரம்
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- 4. Cropwise Statement Table (10 Columns) -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 12px; margin-bottom: 20px;">
-              <thead>
-                <tr style="text-align: center; font-weight: 900;">
-                  <th style="border: 1px solid #000000; padding: 4px; width: 6%;">வ.எண்</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 16%;">பயிர்</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 9%;">எண்ணிக்கை</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 9%;">நிலபரப்பு<br/>ஏ.செ</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 9%;">விதை பகுதி</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 10%;">இரசாயன<br/>உரம் 50%</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 8%;">தொழு<br/>உரம்</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 9%;">பூச்சி மருந்து</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 11%;">ரொக்கம்</th>
-                  <th style="border: 1px solid #000000; padding: 4px; width: 13%;">மொத்தம்</th>
-                </tr>
-              </thead>
-              <tbody style="font-weight: 600;">
-                ${cropRows.map((r, idx) => `
-                  <tr>
-                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${idx + 1}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center; font-weight: bold;">${r.crop || ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.count || ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.acres > 0 ? r.acres.toFixed(2) : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.seed > 0 ? r.seed.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.chem > 0 ? r.chem.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.comp > 0 ? r.comp.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.pest > 0 ? r.pest.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.cash > 0 ? r.cash.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${r.totalLoan > 0 ? r.totalLoan.toLocaleString('en-IN') : ''}</td>
-                  </tr>
-                `).join('')}
-                <tr style="font-weight: 900; border-top: 2px solid #000000;">
-                  <td colspan="2" style="border: 1px solid #000000; padding: 4px; text-align: center; font-weight: 900;">மொத்தம்</td>
-                  <td style="border: 1px solid #000000; padding: 4px; text-align: center; font-weight: 900;">${totCount > 0 ? totCount : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px; text-align: center; font-weight: 900;">${totAcres > 0 ? totAcres.toFixed(2) : '0.00'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totSeed > 0 ? totSeed.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totChem > 0 ? totChem.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totComp > 0 ? totComp.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totPest > 0 ? totPest.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totCash > 0 ? totCash.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900;">${totLoan > 0 ? totLoan.toLocaleString('en-IN') : '0'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- 5. Signatures Section - Pure text without any boxes or borders -->
-            <div style="margin-top: 80px; margin-bottom: 20px; width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 900; text-align: center;">
-              <div style="width: 30%; text-align: center;">செயலாளர்</div>
-              <div style="width: 40%; text-align: center;">தலைவர் / செயலாட்சியர்</div>
-              <div style="width: 30%; text-align: center;">சரக மேற்பார்வையாளர்</div>
+            <!-- 5. Signatures Section -->
+            <div style="margin-top: 75px; margin-bottom: 25px; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; font-size: 13.5px; font-weight: 900; text-align: center; padding: 0 40px; box-sizing: border-box; page-break-inside: avoid;">
+              <div style="width: 28%; text-align: center;">
+                <div style="height: 50px;"></div>
+                <div>செயலாளர்</div>
+              </div>
+              <div style="width: 38%; text-align: center;">
+                <div style="height: 50px;"></div>
+                <div>தலைவர் / செயலாட்சியர்</div>
+              </div>
+              <div style="width: 28%; text-align: center;">
+                <div style="height: 50px;"></div>
+                <div>சரக மேற்பார்வையாளர்</div>
+              </div>
             </div>
 
             <script>
               window.onload = function() {
-                setTimeout(() => { window.print(); }, 500);
+                setTimeout(() => { window.print(); }, 400);
               };
             </script>
           </body>
@@ -1657,16 +1653,49 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
     // SPECIAL HANDLING FOR 4. INSURANCE (காப்பீடு விபத்துக் காப்பீடு)
     if (formTitle.includes('காப்பீடு') || formTitle.includes('Insurance')) {
+      const activeDisbNumber = (searchedDisbNo || filterDisbNo || currentDisbNo || '1').trim();
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '05-09-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/P1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
+      const effectiveDisbNo = activeDisbNumber;
+      const effectiveDisbDate = printItems.find(i => (i as any).disbursementDate || (i as any).disbDate)?.disbursementDate || '';
+
+      // Helper to safely extract positive insurance subscription amount
+      const getMemberInsuranceVal = (item: any): number => {
+        const candidates = [
+          item.insurance,
+          item.insuranceFee,
+          item.insuranceAmount,
+          item.insAmount,
+          item.insSubscription,
+          item.subscription,
+          item['காப்பீடு'],
+          item['Insurance'],
+          item['விபத்துக் காப்பீடு']
+        ];
+        for (const c of candidates) {
+          if (c !== undefined && c !== null && String(c).trim() !== '') {
+            const parsed = parseFloat(String(c).replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsed) && parsed > 0) {
+              return parsed;
+            }
+          }
+        }
+        return 0;
+      };
+
       // 1. Group & deduplicate strictly by "அ எண்" (aClass / aNo / memberNo)
-      // 2. Filter ONLY members who have insurance > 0
+      // 2. Filter ONLY members who have insurance subscription amount > 0
       const memberMap = new Map<string, {
         item: typeof printItems[0];
         totalIns: number;
       }>();
 
       printItems.forEach(i => {
-        const insVal = parseFloat(String(i.insurance || '0').replace(/[^0-9.]/g, '')) || 0;
-        if (insVal <= 0) return; // ONLY members who have insurance subscription
+        const insVal = getMemberInsuranceVal(i);
+        if (insVal <= 0) return; // STRICT FILTER: ONLY members who have insurance subscription > 0
 
         const aKey = (i.aClass || i.aNo || i.memberNo || '').toString().trim();
         const dedupeKey = aKey && aKey !== '-' ? aKey : ((i.name || '').toString().trim() || String(i.id || Math.random()));
@@ -1691,7 +1720,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const insPrintItems = Array.from(memberMap.values()).filter(m => m.totalIns > 0);
 
       if (insPrintItems.length === 0) {
-        alert('பகுதி 8ல் காப்பீடு பிடித்தம் உள்ள (Insurance > 0) உறுப்பினர்கள் யாரும் பட்டியலில் இல்லை.');
+        alert(`தேர்ந்தெடுக்கப்பட்ட பட்டுவாடாவில் (பட்டுவாடா எண்: ${effectiveDisbNo}) காப்பீடு தொகை பிடித்தம் உள்ள (Insurance > 0) உறுப்பினர்கள் எவரும் இல்லை. காப்பீடு தொகை உள்ள உறுப்பினர்கள் மட்டுமே இவ்வறிக்கையில் காட்டப்படுவர்.`);
         return;
       }
 
@@ -1707,7 +1736,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               @media print {
                 @page {
                   size: legal landscape;
-                  margin: 5mm;
+                  margin: 6mm;
                 }
                 body {
                   margin: 0;
@@ -1720,20 +1749,24 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 .no-print { display: none !important; }
               }
               body {
-                font-family: system-ui, -apple-system, sans-serif;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background-color: #ffffff;
                 color: #000000;
-                padding: 12px;
+                padding: 10px;
                 font-size: 11px;
               }
               table {
                 border-collapse: collapse;
                 width: 100%;
+                table-layout: fixed;
               }
               th, td {
-                border: 1.5px solid #000000 !important;
-                padding: 4px 4px;
+                border: 1px solid #000000 !important;
+                padding: 3.5px 3px;
                 color: #000000 !important;
+                box-sizing: border-box;
+                word-break: break-word;
+                overflow-wrap: break-word;
               }
             </style>
           </head>
@@ -1745,111 +1778,154 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </button>
             </div>
 
-            <!-- 1. Two-Column Sender & Receiver Header (அனுப்புநர் & பெறுநர்) matching PDF -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13px;">
+            <!-- 1. Top Header Matching Uploaded PDF -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12.5px;">
               <tbody>
                 <tr>
-                  <td style="width: 50%; border: 1.5px solid #000000; padding: 8px 12px; vertical-align: top;">
-                    <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 8px; font-size: 13px; color: #000000;">
+                  <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 14.5px; padding: 4px 6px;">
+                    T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                    உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 13.5px; padding: 4px 6px;">
+                    KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 12px; padding: 3px 6px;">
+                    மத்திய வங்கி RCL No: ${effectiveRclNo} &nbsp;&nbsp;&nbsp;&nbsp; நாள்:${effectiveRclDate}
+                  </td>
+                </tr>
+                <tr style="height: 28px;">
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான எண்</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${effectiveResNo}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான தேதி</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${effectiveResDate}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா எண்</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${effectiveDisbNo}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா தேதி</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${effectiveDisbDate}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- 2. Two-Column Sender & Receiver Header (அனுப்புநர் & பெறுநர்) matching PDF -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12px;">
+              <tbody>
+                <tr>
+                  <td style="width: 50%; border: 1.5px solid #000000; padding: 6px 12px; vertical-align: top;">
+                    <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 6px; font-size: 12px; color: #000000;">
                       அனுப்புநர்
                     </div>
-                    <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 13px;">
+                    <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 12px;">
                       <div>செயலாளர்</div>
-                      <div>TU3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம்</div>
+                      <div>TU3 தேவாரம் PACCS</div>
                       <div>தேவாரம்</div>
                     </div>
                   </td>
-                  <td style="width: 50%; border: 1.5px solid #000000; padding: 8px 12px; vertical-align: top;">
-                    <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 8px; font-size: 13px; color: #000000;">
+                  <td style="width: 50%; border: 1.5px solid #000000; padding: 6px 12px; vertical-align: top;">
+                    <div style="display: inline-block; border: 1.5px solid #000000; padding: 2px 8px; font-weight: 900; margin-bottom: 6px; font-size: 12px; color: #000000;">
                       பெறுநர்
                     </div>
-                    <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 13px;">
+                    <div style="font-weight: bold; line-height: 1.45; color: #000000; font-size: 12px;">
                       <div>கிளை மேலாளர் அவர்கள்</div>
-                      <div>மதுரை மாவட்ட மத்திய</div>
-                      <div>கூட்டுறவு வங்கி,</div>
-                      <div>தேவாரம் கிளை</div>
+                      <div>மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி, தேவாரம் கிளை</div>
+                      <div>தேவாரம்</div>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <!-- 2. RCL No, Date & Title Banner matching PDF -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13.5px;">
+            <!-- 3. RCL No, Date & Title Banner matching PDF -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 13px;">
               <tbody>
-                <tr style="border-bottom: 1.5px solid #000000;">
-                  <td style="padding: 5px 12px; font-weight: 900; text-align: center;">
-                    <span>மத்திய வங்கி RCL No: ${rclNumber || '107/25-26/P1'}</span> &nbsp;&nbsp;&nbsp;&nbsp; <span>நாள்:${formatDateDDMMYYYY(rclDate) || '15.04.2026'}</span>
-                  </td>
-                </tr>
                 <tr>
-                  <td style="padding: 6px 12px; font-weight: 900; text-align: center; font-size: 14.5px; letter-spacing: 0.3px;">
-                    காசுகடன் KCC -  உறுப்பினர்கள் விபத்துக் காப்பீடு விவரம்
+                  <td style="padding: 6px 12px; font-weight: 900; text-align: center; font-size: 14px; letter-spacing: 0.3px;">
+                    காசுகடன் KCC - உறுப்பினர்கள் விபத்துக் காப்பீடு விவரம்
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <!-- 3. Insurance Details 13-Column Table matching PDF exactly -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11.5px; margin-bottom: 0;">
+            <!-- 4. Insurance Details 13-Column Table matching PDF exactly -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0; table-layout: fixed;">
               <thead>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 2px; width: 4.5%;">வ எண்</th>
-                  <th colspan="5" style="border: 1.5px solid #000000; padding: 6px 2px;">உறுப்பினர் விபரம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 14%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 8.5%;">கிராமம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 11%;">குடும்ப<br/>அட்டை<br/>எண்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 8.5%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 11%;">நாமினியின்<br/>பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 2px; width: 6%;">உறவு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 6px 4px; width: 7.5%;">சந்தாத்<br/>தொகை</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 3.5%;">வ எண்</th>
+                  <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 2px; width: 35%;">உறுப்பினர் விபரம்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 13%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 8.5%;">கிராமம்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 12%;">குடும்ப<br/>அட்டை<br/>எண்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 7%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 10%;">நாமினியின்<br/>பெயர்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 4.5%;">உறவு</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 6.5%;">சந்தாத்<br/>தொகை</th>
                 </tr>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
                   <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5.5%;">அ எண்</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6.5%;">SB எண்</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 7%;">SB எண்</th>
                   <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6%;">ERP</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5%;">Initial</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 4px; width: 11%;">பெயர்</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 4.5%;">Initial</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 3px; width: 12%;">பெயர்</th>
                 </tr>
               </thead>
-              <tbody style="font-weight: 600; font-size: 11.5px;">
+              <tbody style="font-weight: 600; font-size: 11px;">
                 ${insPrintItems.map(({ item: r, totalIns: insAmt }, idx) => {
                   const memberAClass = r.aClass || r.aNo || r.memberNo || '';
                   const fatherOrHusband = r.careOf || r.fatherOrHusbandName || '';
                   const memberVillage = r.village || 'தேவாரம்';
                   const rationCardNo = r.rationCard || (r as any).ration || '';
-                  const disabilityInfo = r.disability || 'இல்லை';
+                  const disabilityInfo = r.disability || '0';
                   const nomineeName = r.namini || (r as any).nominee || '';
                   const relationship = r.relation || (r as any).relationship || '';
                   const { initial: initials, name: cleanMemberName } = parseInitialAndName(r);
 
                   return `
                     <tr>
-                      <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${memberAClass}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center;">${r.sb || ''}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 2px; text-align: center; font-weight: bold;">${initials}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left; font-weight: bold;">${cleanMemberName}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left;">${fatherOrHusband}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${memberVillage}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center; font-family: monospace; font-size: 11px;">${rationCardNo}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${disabilityInfo}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: left;">${nomineeName}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 4px; text-align: center;">${relationship}</td>
-                      <td style="border: 1.5px solid #000000; padding: 5px 6px; text-align: center; font-weight: bold;">${insAmt.toLocaleString('en-IN')}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${memberAClass}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.sb || ''}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${initials}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left; font-weight: bold;">${cleanMemberName}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${fatherOrHusband}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${memberVillage}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-family: monospace; font-size: 10.5px;">${rationCardNo}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${disabilityInfo}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${nomineeName}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${relationship}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${insAmt.toLocaleString('en-IN')}</td>
                     </tr>
                   `;
                 }).join('')}
                 <!-- Bottom Grand Total Row matching PDF -->
                 <tr style="font-weight: 900; border-top: 2px solid #000000;">
-                  <td colspan="12" style="border: 1.5px solid #000000; padding: 6px 10px; text-align: right;"></td>
-                  <td style="border: 1.5px solid #000000; padding: 6px 4px; text-align: center; font-weight: 900; font-size: 13px;">
+                  <td colspan="12" style="border: 1px solid #000000; padding: 5px 8px; text-align: right; font-weight: 900;">மொத்தம்</td>
+                  <td style="border: 1px solid #000000; padding: 5px 2px; text-align: center; font-weight: 900; font-size: 12.5px;">
                     ${totalInsSubscription > 0 ? totalInsSubscription.toLocaleString('en-IN') : '0'}
                   </td>
                 </tr>
               </tbody>
             </table>
+
+            <!-- Signature Block: 3 Column Signatories matching user preferences -->
+            <div style="margin-top: 65px; display: flex; justify-content: space-between; text-align: center; font-weight: bold; font-size: 12.5px; padding: 0 20px; page-break-inside: avoid;">
+              <div style="width: 28%; text-align: center;">
+                <div>செயலாளர்</div>
+              </div>
+              <div style="width: 38%; text-align: center;">
+                <div>தலைவர் / செயலாட்சியர்</div>
+              </div>
+              <div style="width: 28%; text-align: center;">
+                <div>வட்டார மேற்பார்வையாளர்</div>
+              </div>
+            </div>
 
             <script>
               window.onload = function() {
@@ -2294,6 +2370,478 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       printWindow.document.close();
       return;
     }
+    // SPECIAL HANDLING FOR 2. AH-2 படிவம் (KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்)
+    if (formTitle.includes('AH-2') || formTitle.includes('AH 2')) {
+      const activeDisbNumber = filterDisbNo || currentDisbNo || '1';
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '05-09-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/P1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
+
+      let totalCurrentShare = 0;
+      let totalSocietyShare = 0;
+      let totalMdccShare = 0;
+      let totalBookFee = 0;
+      let totalInsFee = 0;
+      let totalLoanSum = 0;
+      let totalMirrorAmtSum = 0;
+
+      const seenAh2BookMembers = new Set<string>();
+
+      const itemsRowsHtml = printItems.map((item, idx) => {
+        const loanAmt = getItemLoanAmount(item);
+        const { initial, name: cleanName } = parseInitialAndName(item);
+
+        // Share capital (தற்போது பிடிக்கும் பங்கு தொகை)
+        let curShare = 0;
+        if (item.shareCapital !== undefined && item.shareCapital !== null && item.shareCapital !== '') {
+          curShare = parseFloat(String(item.shareCapital).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).shareAmount !== undefined && (item as any).shareAmount !== null && (item as any).shareAmount !== '') {
+          curShare = parseFloat(String((item as any).shareAmount).replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        // சங்கம் பங்கு தொகை (40%) and MDCC Bank பங்கு தொகை (60%)
+        let societyShare = 0;
+        let mdccShare = 0;
+        if ((item as any).societyShare !== undefined && (item as any).societyShare !== null && (item as any).societyShare !== '') {
+          societyShare = parseFloat(String((item as any).societyShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          societyShare = Math.round(curShare * 0.40);
+        }
+
+        if ((item as any).bankShare !== undefined && (item as any).bankShare !== null && (item as any).bankShare !== '') {
+          mdccShare = parseFloat(String((item as any).bankShare).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).mdccShare !== undefined && (item as any).mdccShare !== null && (item as any).mdccShare !== '') {
+          mdccShare = parseFloat(String((item as any).mdccShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          mdccShare = curShare - societyShare;
+        }
+
+        // புத்தக பாரம் (Passbook fee, default 300 per member if not specified)
+        const aClassKey = String(item.aClass || item.aNo || item.memberNo || item.name || '').trim().toLowerCase();
+        let bookFee = 0;
+        if (item.passbookFee !== undefined && item.passbookFee !== null && String(item.passbookFee).trim() !== '') {
+          bookFee = parseFloat(String(item.passbookFee).replace(/[^0-9.]/g, '')) || 0;
+        } else if (item.bookCharge !== undefined && item.bookCharge !== null && String(item.bookCharge).trim() !== '') {
+          bookFee = parseFloat(String(item.bookCharge).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          if (aClassKey && !seenAh2BookMembers.has(aClassKey)) {
+            bookFee = 300;
+          } else {
+            bookFee = 0;
+          }
+        }
+        if (aClassKey) seenAh2BookMembers.add(aClassKey);
+
+        // காப்பீடு
+        const insFee = parseFloat(String(item.insurance !== undefined ? item.insurance : (item.insuranceFee || 0)).replace(/[^0-9.]/g, '')) || 0;
+
+        // MIRROR ACCOUNT Amount = மொத்த கடன் தொகை - (தற்போது பிடிக்கும் பங்கு தொகை + புத்தக பாரம் + காப்பீடு)
+        const mirrorAmt = (item as any).mirrorAccountAmount !== undefined && (item as any).mirrorAccountAmount !== null && String((item as any).mirrorAccountAmount).trim() !== ''
+          ? (parseFloat(String((item as any).mirrorAccountAmount).replace(/[^0-9.]/g, '')) || 0)
+          : Math.max(0, loanAmt - (curShare + bookFee + insFee));
+
+        // MIRROR ACCOUNT Number
+        const mirrorNo = (item as any).mirrorAccountNumber || (item as any).mirrorAccountNo || (item as any).mirrorNo || (item as any).mirrorAcc || item.mdcc || item.mdccAccount || item.mdccAccountNo || item.kccAccountNo || '';
+
+        totalCurrentShare += curShare;
+        totalSocietyShare += societyShare;
+        totalMdccShare += mdccShare;
+        totalBookFee += bookFee;
+        totalInsFee += insFee;
+        totalLoanSum += loanAmt;
+        totalMirrorAmtSum += mirrorAmt;
+
+        return `
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 34px;">
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold;">${idx + 1}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; font-weight: 800; font-family: monospace; font-size: 13.5px; letter-spacing: 0.5px;">${mirrorNo || ''}</td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ta">
+          <head>
+            <meta charset="utf-8" />
+            <title>AH-2 படிவம் - KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @media print {
+                @page {
+                  size: legal landscape;
+                  margin: 6mm;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                table {
+                  page-break-inside: auto;
+                }
+                tr {
+                  page-break-inside: avoid;
+                  page-break-after: auto;
+                }
+                thead {
+                  display: table-header-group;
+                }
+                tfoot {
+                  display: table-footer-group;
+                }
+              }
+              body {
+                font-family: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: black;
+                background: #f8fafc;
+                padding: 12px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              th, td {
+                border: 1px solid black;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print mb-4 flex items-center justify-between bg-stone-100 p-3.5 rounded-xl border border-stone-300">
+              <span class="text-xs font-bold text-stone-800">2. AH-2 படிவம் (KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்)</span>
+              <button onclick="window.print()" class="bg-[#007A4D] text-white font-black text-xs px-5 py-2 rounded-lg cursor-pointer">
+                அச்சிடுக (Print AH-2)
+              </button>
+            </div>
+
+            <!-- Exact Document Header matching reference PDF -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black; margin-bottom: 0;">
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 4px 6px; border: 1.5px solid black; font-weight: 900; font-size: 14.5px;">
+                  T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: bold; font-size: 12.5px;">
+                  உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: 900; font-size: 13.5px;">
+                  KCC AH ல் கால்நடை பராமரிப்பு பட்டுவாடா விபரம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: bold; font-size: 12.5px;">
+                  மத்திய வங்கி RCL No: ${effectiveRclNo} நாள்:${effectiveRclDate}
+                </td>
+              </tr>
+              <tr style="font-weight: bold; font-size: 11px; text-align: center;">
+                <td style="width: 12%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான எண்</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResNo}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான தேதி</td>
+                <td style="width: 15%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResDate}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா எண்</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${activeDisbNumber}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா தேதி</td>
+                <td colspan="7" style="border: 1px solid black; font-family: monospace; padding: 4px;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <!-- Main Table with Exact Headers matching reference PDF -->
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: -1px;">
+              <thead>
+                <tr style="background: #ffffff; text-align: center; font-weight: bold; font-size: 10.5px; height: 42px;">
+                  <th style="width: 3.5%; border: 1px solid black; padding: 3px 2px;">வ.எண்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">அ.எண்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">SB</th>
+                  <th style="width: 5.5%; border: 1px solid black; padding: 3px 2px;">ERP</th>
+                  <th style="width: 3.5%; border: 1px solid black; padding: 3px 2px;">Ins</th>
+                  <th style="width: 15%; border: 1px solid black; padding: 3px 4px; font-size: 11px;">பெயர்</th>
+                  <th style="width: 7%; border: 1px solid black; padding: 3px 2px;">தற்போது பிடிக்கும் பங்கு தொகை</th>
+                  <th style="width: 6.8%; border: 1px solid black; padding: 3px 2px;">சங்க பங்கு தொகை (40%)</th>
+                  <th style="width: 6.8%; border: 1px solid black; padding: 3px 2px;">MDCC Bank பங்கு தொகை (60%)</th>
+                  <th style="width: 5.4%; border: 1px solid black; padding: 3px 2px; text-align: center;">புத்தக பாரம்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">காப்பீடு</th>
+                  <th style="width: 9%; border: 1px solid black; padding: 3px 4px;">மொத்த கடன் தொகை</th>
+                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT Amount</th>
+                  <th style="width: 14.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT number</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRowsHtml}
+                <!-- Totals Row with 'மொத்தம்' matching request -->
+                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 11px; height: 34px;">
+                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Signatures: செயலாளர், தலைவர் / செயலாட்சியர் -->
+            <div style="margin-top: 25px; color: black; page-break-inside: avoid;">
+              <div style="display: flex; justify-content: center; align-items: flex-end; gap: 90px; text-align: center; font-size: 13px; font-weight: bold;">
+                <div>
+                  <div style="height: 32px;"></div>
+                  <div style="border-top: 1.5px solid black; padding-top: 5px; min-width: 160px;">செயலாளர்</div>
+                </div>
+                <div>
+                  <div style="height: 32px;"></div>
+                  <div style="border-top: 1.5px solid black; padding-top: 5px; min-width: 200px;">தலைவர் / செயலாட்சியர்</div>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(() => { window.print(); }, 400);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+
+    // SPECIAL HANDLING FOR 1. AH-1 படிவம்
+    if (formTitle.includes('AH-1') || formTitle.includes('AH 1')) {
+      const activeDisbNumber = filterDisbNo || currentDisbNo || '1';
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '20-05-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/AH1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
+
+      const totalLivestockCount = printItems.reduce((acc, item) => {
+        const countVal = parseFloat(String(item.livestockCount ?? item.acres ?? '0').replace(/[^0-9.]/g, '')) || 0;
+        return acc + countVal;
+      }, 0);
+      const totalLoan = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
+      const totalPrevLoan = printItems.reduce((acc, item) => {
+        const prevAmt = parseFloat(String(item.prevLoanAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+        return acc + prevAmt;
+      }, 0);
+
+      const itemsRowsHtml = printItems.map((item, idx) => {
+        const loanAmt = getItemLoanAmount(item);
+        const prevAmt = parseFloat(String(item.prevLoanAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+        const { initial, name: cleanName } = parseInitialAndName(item);
+        const livestockTypeVal = item.livestockType || item.crop || '-';
+        const rawCount = item.livestockCount !== undefined && item.livestockCount !== null && item.livestockCount !== '' 
+          ? String(item.livestockCount) 
+          : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
+
+        return `
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 34px;">
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold;">${idx + 1}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.prevLoanNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.prevLoanDate ? formatDateDDMMYYYY(item.prevLoanDate) : '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${prevAmt ? prevAmt.toLocaleString('en-IN') : '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: 600;">${livestockTypeVal}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 12.5px;">${rawCount}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ta">
+          <head>
+            <meta charset="utf-8" />
+            <title>AH-1 படிவம் - கால்நடை பராமரிப்பு கடன் பட்டுவாடா அறிக்கை</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @media print {
+                @page {
+                  size: legal landscape;
+                  margin: 6mm;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                table {
+                  page-break-inside: auto;
+                }
+                tr {
+                  page-break-inside: avoid;
+                  page-break-after: auto;
+                }
+                thead {
+                  display: table-header-group;
+                }
+                tfoot {
+                  display: table-footer-group;
+                }
+              }
+              body {
+                font-family: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: black;
+                background: #f8fafc;
+                padding: 12px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              th, td {
+                border: 1px solid black;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print mb-4 flex items-center justify-between bg-stone-100 p-3.5 rounded-xl border border-stone-300">
+              <span class="text-xs font-bold text-stone-800">AH-1 படிவம் (கால்நடை பராமரிப்பு கடன் பட்டுவாடா விபரம்)</span>
+              <button onclick="window.print()" class="bg-[#007A4D] text-white font-black text-xs px-5 py-2 rounded-lg cursor-pointer">
+                அச்சிடுக (Print AH-1)
+              </button>
+            </div>
+
+            <!-- Exact Document Header -->
+            <div style="text-align: center; margin-bottom: 12px; color: black;">
+              <h1 style="font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase;">
+                T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+              </h1>
+              <h2 style="font-size: 13px; font-weight: bold; margin: 3px 0;">
+                உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+              </h2>
+              <div style="margin-top: 6px;">
+                <span style="border: 2px solid black; padding: 3px 18px; font-size: 14px; font-weight: 900; display: inline-block;">
+                  AH 1 ல் கால்நடை பராமரிப்பு கடன் பட்டுவாடா விபரம்
+                </span>
+              </div>
+              <div style="font-size: 12px; font-weight: bold; margin-top: 6px;">
+                மத்திய வங்கி RCL No: ${effectiveRclNo} &nbsp;&nbsp;&nbsp;&nbsp; நாள்: ${effectiveRclDate}
+              </div>
+            </div>
+
+            <!-- Metadata Table -->
+            <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
+              <tr>
+                <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
+                <td style="width: 8%; font-family: monospace;">${effectiveResNo}</td>
+                <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
+                <td style="width: 18%; font-family: monospace;">${effectiveResDate}</td>
+                <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
+                <td style="width: 8%; font-family: monospace;">${activeDisbNumber}</td>
+                <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
+                <td style="width: 18%; font-family: monospace;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <!-- Loan Total Banner -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+              <table style="border-collapse: collapse; border: 1px solid black; font-weight: bold; font-size: 11px; margin-left: auto;">
+                <tr>
+                  <td style="text-align: right; background: #f5f5f5; padding: 5px 12px; border: 1px solid black;">
+                    AH 1ல் தற்போது பட்டுவாடா கோரும் தொகை
+                  </td>
+                  <td style="text-align: right; font-size: 13px; font-weight: 900; padding: 5px 12px; border: 1px solid black; white-space: nowrap;">
+                    ₹ ${totalLoan.toLocaleString('en-IN')}.00
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Main Table with Multi-level Headers -->
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f5f5f5; text-align: center; font-weight: bold; font-size: 11px;">
+                  <th rowspan="2" style="width: 4%;">வ.எண்</th>
+                  <th rowspan="2" style="width: 5.5%;">அ.எண்</th>
+                  <th rowspan="2" style="width: 5.5%;">SB</th>
+                  <th rowspan="2" style="width: 6.5%;">ERP</th>
+                  <th rowspan="2" style="width: 4.5%;">Initial</th>
+                  <th rowspan="2" style="width: 16%;">பெயர்</th>
+                  <th colspan="3" style="width: 28%;">முன்கடன் திருப்பி செலுத்திய விபரம்</th>
+                  <th rowspan="2" style="width: 12.5%;">கால்நடைகளின் வகை</th>
+                  <th rowspan="2" style="width: 8%;">கால்நடைகளின் எண்ணிக்கை</th>
+                  <th rowspan="2" style="width: 10%;">கடன் தொகை</th>
+                </tr>
+                <tr style="background: #f5f5f5; text-align: center; font-weight: bold; font-size: 11px;">
+                  <th style="width: 8.5%;">முன்கடன் எண்</th>
+                  <th style="width: 9.5%;">முன்கடன் தேதி</th>
+                  <th style="width: 10%;">முன்கடன் தொகை</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRowsHtml}
+                <!-- Totals Row -->
+                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 11px; height: 34px;">
+                  <td colspan="8" style="text-align: right; padding: 6px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
+                  <td style="text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalPrevLoan ? totalPrevLoan.toLocaleString('en-IN') : '-'}</td>
+                  <td></td>
+                  <td style="text-align: center; padding: 6px; font-size: 13px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
+                  <td style="text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Signatures: Secretary and President / Executive Officer -->
+            <div style="margin-top: 35px; color: black; page-break-inside: avoid;">
+              <div style="display: flex; justify-content: center; align-items: center; gap: 160px; text-align: center; font-size: 11.5px; font-weight: bold; margin-top: 24px;">
+                <div>
+                  <div style="height: 38px;"></div>
+                  <div style="border-top: 2px solid black; padding-top: 4px; min-width: 140px;">செயலாளர்</div>
+                </div>
+                <div>
+                  <div style="height: 38px;"></div>
+                  <div style="border-top: 2px solid black; padding-top: 4px; min-width: 180px;">தலைவர் / செயலாட்சியர்</div>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(() => { window.print(); }, 400);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+
     const isJabitha = formTitle.includes('ஜாபிதா') || formTitle.includes('Jabitha');
     const isAgreement = formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page');
     const isKcc2 = (formTitle.includes('KCC-2') || formTitle.includes('KCC 2')) && !isAgreement;
@@ -2772,13 +3320,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
             <tr>
               <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
-              <td style="width: 8%; font-family: monospace;">1</td>
+              <td style="width: 8%; font-family: monospace;">${resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1'}</td>
               <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
-              <td style="width: 18%; font-family: monospace;">20-05-2026</td>
+              <td style="width: 18%; font-family: monospace;">${formatDateDDMMYYYY(resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate) || '20-05-2026'}</td>
               <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
               <td style="width: 8%; font-family: monospace;">${filterDisbNo || currentDisbNo || '1'}</td>
               <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
-              <td style="width: 18%; font-family: monospace;"></td>
+              <td style="width: 18%; font-family: monospace;">${formatDateDDMMYYYY(resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate) || '20-05-2026'}</td>
             </tr>
           </table>
 
@@ -3603,7 +4151,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           </div>
         )}
 
-        <form id="kcc-disbursement-form" onSubmit={handleAddToList} className="space-y-5 text-xs">
+        <form id="ah-disbursement-form" onSubmit={handleAddToList} className="space-y-5 text-xs">
           {/* Active Edit Mode Banner */}
           {editingItem && (
             <div className="bg-amber-50 border-2 border-amber-500 text-amber-900 px-4 py-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-in fade-in">
@@ -3675,43 +4223,18 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <label className="block text-stone-700 font-bold mb-1">
                   RCL தேதி <span className="text-[#007A4D]">*</span>
                 </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    required
-                    value={rclDate}
-                    onChange={(e) => handleRclDateChange(e.target.value)}
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      if (val) {
-                        const formatted = formatDateDDMMYYYY(val);
-                        if (formatted && formatted !== '-') {
-                          handleRclDateChange(formatted);
-                        }
-                      }
-                    }}
-                    placeholder="15 - 04 - 2026 (DD-MM-YYYY)"
-                    className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 pr-10 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs"
-                  />
-                  <div className="absolute right-2.5 flex items-center">
-                    <input
-                      type="date"
-                      id="ah-rcl-date-picker"
-                      aria-label="RCL தேதி தேர்வு"
-                      value={toIsoDate(rclDate)}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleRclDateChange(fromIsoDate(e.target.value));
-                        }
-                      }}
-                      className="opacity-0 absolute inset-0 w-8 h-8 cursor-pointer z-10"
-                    />
-                    <label htmlFor="ah-rcl-date-picker" className="cursor-pointer text-stone-500 hover:text-[#007A4D] transition-colors p-1" title="தேதியைத் தேர்ந்தெடுக்கவும்">
-                      <Calendar className="w-5 h-5" />
-                    </label>
-                  </div>
-                </div>
-                <span className="text-[10px] text-stone-500 mt-1 block font-medium">வடிவம்: DD-MM-YYYY அல்லது காலண்டர் ஐகானைத் தொடவும்</span>
+                <input
+                  type="date"
+                  required
+                  aria-label="RCL தேதி"
+                  value={toIsoDate(rclDate)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleRclDateChange(fromIsoDate(e.target.value));
+                    }
+                  }}
+                  className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs cursor-pointer"
+                />
               </div>
 
               <div>
@@ -3808,7 +4331,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 தீர்மான விபரம் (Resolution Details)
               </h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
               <div>
                 <label className="block text-stone-700 font-bold mb-1">
                   தீர்மான எண் <span className="text-[#007A4D]">*</span>
@@ -3827,43 +4350,18 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <label className="block text-stone-700 font-bold mb-1">
                   தீர்மான தேதி <span className="text-[#007A4D]">*</span>
                 </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    required
-                    value={resolutionDate}
-                    onChange={(e) => handleResolutionDateChange(e.target.value)}
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      if (val) {
-                        const formatted = formatDateDDMMYYYY(val);
-                        if (formatted && formatted !== '-') {
-                          handleResolutionDateChange(formatted);
-                        }
-                      }
-                    }}
-                    placeholder="20 - 05 - 2026 (DD-MM-YYYY)"
-                    className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 pr-10 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs"
-                  />
-                  <div className="absolute right-2.5 flex items-center">
-                    <input
-                      type="date"
-                      id="ah-res-date-picker"
-                      aria-label="தேதி தேர்வு"
-                      value={toIsoDate(resolutionDate)}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleResolutionDateChange(fromIsoDate(e.target.value));
-                        }
-                      }}
-                      className="opacity-0 absolute inset-0 w-8 h-8 cursor-pointer z-10"
-                    />
-                    <label htmlFor="ah-res-date-picker" className="cursor-pointer text-stone-500 hover:text-[#007A4D] transition-colors p-1" title="தேதியைத் தேர்ந்தெடுக்கவும்">
-                      <Calendar className="w-5 h-5" />
-                    </label>
-                  </div>
-                </div>
-                <span className="text-[10px] text-stone-500 mt-1 block font-medium">வடிவம்: DD-MM-YYYY அல்லது காலண்டர் ஐகானைத் தொடவும் (பட்டுவாடா எண் மாறும் வரை இத்தேதி மாறாது)</span>
+                <input
+                  type="date"
+                  required
+                  aria-label="தீர்மான தேதி"
+                  value={toIsoDate(resolutionDate)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleResolutionDateChange(fromIsoDate(e.target.value));
+                    }
+                  }}
+                  className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs cursor-pointer"
+                />
               </div>
             </div>
           </div>
@@ -4619,47 +5117,39 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 </div>
               </div>
 
-              {/* Sections 5 & 6: Land & Loan Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
-                  <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
-                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 5</span>
-                    <span>நில விவரம்</span>
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div><span className="text-stone-500 block text-[10px]">சர்வே எண்:</span> <strong className="text-stone-900 block font-mono">{viewingItem.surveyNo || '-'}</strong></div>
-                    <div><span className="text-stone-500 block text-[10px]">பரப்பு (ஏக்கர்):</span> <strong className="text-stone-900 block font-mono">{formatAcres(viewingItem.acres)}</strong></div>
-                    <div className="col-span-2"><span className="text-stone-500 block text-[10px]">பயிர்:</span> <strong className="text-[#007A4D] block font-bold text-sm">{viewingItem.crop}</strong></div>
+              {/* Section 5: Livestock & Loan Details */}
+              <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
+                <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
+                  <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 5</span>
+                  <span>கால்நடை மற்றும் கடன் விபரம் (Livestock & Loan Details)</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">கால்நடை வகை:</span>
+                    <strong className="text-[#007A4D] block font-bold text-sm">{viewingItem.livestockType || viewingItem.crop || 'மாடுகள்'}</strong>
                   </div>
-                </div>
-
-                <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
-                  <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
-                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 6</span>
-                    <span>கடன் தொகைப் பங்கீடு</span>
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
-                    <div><span className="text-stone-500 font-sans block text-[10px]">விதை:</span> <strong className="text-stone-900 block">₹{viewingItem.seed || '0'}</strong></div>
-                    <div><span className="text-stone-500 font-sans block text-[10px]">இரசாயன உரம்:</span> <strong className="text-stone-900 block">₹{viewingItem.chemicalFertilizer || viewingItem.fertilizer || '0'}</strong></div>
-                    <div><span className="text-stone-500 font-sans block text-[10px]">உரம் வகை:</span> <strong className="text-stone-900 block">₹{viewingItem.fertilizerKind || viewingItem.compost || '0'}</strong></div>
-                    <div><span className="text-stone-500 font-sans block text-[10px]">பூச்சிக்கொல்லி:</span> <strong className="text-stone-900 block">₹{viewingItem.pesticide || '0'}</strong></div>
-                    <div><span className="text-stone-500 font-sans block text-[10px]">ரொக்கம் / ஆள் கூலி:</span> <strong className="text-stone-900 block">₹{viewingItem.organicFertilizer || viewingItem.cash || '0'}</strong></div>
-                    <div><span className="text-stone-500 font-sans block text-[10px]">மொத்த கடன் தொகை:</span> <strong className="text-[#007A4D] font-black block text-sm">₹{viewingItem.totalLoanAmount || '0'}</strong></div>
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">கால்நடைகளின் எண்ணிக்கை:</span>
+                    <strong className="text-stone-900 block font-mono font-bold text-sm">{viewingItem.livestockCount || viewingItem.acres || '1'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-stone-500 block text-[10px]">கடன் தொகை:</span>
+                    <strong className="text-[#007A4D] font-mono font-black block text-base">₹{viewingItem.totalLoanAmount || viewingItem.loanAmount || viewingItem.organicFertilizer || viewingItem.cash || '0'}</strong>
                   </div>
                 </div>
               </div>
 
-              {/* Sections 7, 8, 9 */}
+              {/* Sections 6, 7, 8: Document Details, Deductions, Previous Loan */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
                   <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
-                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 7</span>
-                    <span>ஆவண விவரங்கள்</span>
+                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 6</span>
+                    <span>ஆவண விபரம்</span>
                   </h4>
                   <div className="space-y-1.5 pt-1">
                     <div><span className="text-stone-500 text-[10px] block">உறுப்பினர் நிலை:</span> <strong className="text-amber-700 font-bold">{viewingItem.memberStatus || (viewingItem.prevLoanNo === 'புதிய உறுப்பினர்' ? 'புதிய உறுப்பினர்' : 'பழைய உறுப்பினர்')}</strong></div>
                     <div><span className="text-stone-500 text-[10px] block">சாதி:</span> <strong className="text-stone-900">{viewingItem.caste || viewingItem.category || '-'}</strong></div>
-                    <div><span className="text-stone-500 text-[10px] block">விவசாயி வகை:</span> <strong className="text-stone-900">{viewingItem.farmerClass || 'MF'}</strong></div>
+                    <div><span className="text-stone-500 text-[10px] block">மாற்றுத்திறனாளி:</span> <strong className="text-stone-900 font-mono">{viewingItem.disability === '1' ? 'ஆம் (மாற்றுத்திறனாளி)' : 'இல்லை (0)'}</strong></div>
                     <div><span className="text-stone-500 text-[10px] block">அடமானம்:</span> <strong className="text-stone-800 block text-[11px] leading-snug">{viewingItem.mortgageType || '-'}</strong></div>
                     <div><span className="text-stone-500 text-[10px] block">ஜாமீன்:</span> <strong className="text-stone-800 block text-[11px] leading-snug">{viewingItem.guaranteeType || '-'}</strong></div>
                   </div>
@@ -4667,11 +5157,11 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
                 <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
                   <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
-                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 8</span>
-                    <span>பிடித்தங்கள்</span>
+                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 7</span>
+                    <span>பிடிக்கும் பகுதி (Deductions)</span>
                   </h4>
                   <div className="space-y-1.5 pt-1 font-mono">
-                    <div><span className="text-stone-500 font-sans text-[10px] block">பாஸ்புக் கட்டணம்:</span> <strong className="text-stone-900">₹{viewingItem.passbookFee || '0'}</strong></div>
+                    <div><span className="text-stone-500 font-sans text-[10px] block">புத்தக பாரம்:</span> <strong className="text-stone-900">₹{viewingItem.passbookFee || '0'}</strong></div>
                     <div><span className="text-stone-500 font-sans text-[10px] block">காப்பீடு பிடித்தம்:</span> <strong className="text-stone-900">₹{viewingItem.insurance || '0'}</strong></div>
                     <div><span className="text-stone-500 font-sans text-[10px] block">பங்குத்தொகை:</span> <strong className="text-stone-900">₹{viewingItem.shareCapital || '0'}</strong></div>
                   </div>
@@ -4679,7 +5169,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
                 <div className="bg-[#FAF9F5] p-4 rounded-xl border border-[#E2E2DC] space-y-2">
                   <h4 className="text-[#007A4D] font-extrabold border-b border-[#E2E2DC] pb-1.5 flex items-center gap-2">
-                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 9</span>
+                    <span className="bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 px-2 py-0.5 rounded text-[10px]">பகுதி 8</span>
                     <span>முன்கடன் செலுத்திய விவரம்</span>
                   </h4>
                   <div className="space-y-1.5 pt-1">
@@ -4728,7 +5218,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 {itemToDelete.name}
               </p>
               <p className="leading-relaxed">
-                இந்த உறுப்பினரை பட்டியலிலிருந்தும், கூகுள் சீட்டிலிருந்தும் ('KCC All Paduvada Members') உறுதியாக நீக்க விரும்புகிறீர்களா?
+                இந்த உறுப்பினரை பட்டியலிலிருந்தும், கூகுள் சீட்டிலிருந்தும் ('AH All Paduvada Members') உறுதியாக நீக்க விரும்புகிறீர்களா?
               </p>
             </div>
 
