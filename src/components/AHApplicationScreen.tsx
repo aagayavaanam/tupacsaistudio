@@ -1598,16 +1598,7 @@ export const AHApplicationScreen: React.FC<AHApplicationScreenProps> = ({
               <span>விண்ணப்பத்தை உருவாக்கு</span>
             </button>
 
-            {/* Direct Print Button */}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-black text-xs sm:text-sm shadow-sm transition-all cursor-pointer transform hover:scale-[1.02] active:scale-95 shrink-0"
-              title="நேரடியாக லீகல் தாளில் அச்சிடுக (Direct Print)"
-            >
-              <Printer className="w-4 h-4" />
-              <span>நேரடி அச்சு</span>
-            </button>
+
 
             {/* Button: சுய அறிவிப்பு உறுதிமொழி */}
             <button
