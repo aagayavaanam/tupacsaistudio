@@ -1567,23 +1567,7 @@ export const AHApplicationScreen: React.FC<AHApplicationScreenProps> = ({
               </button>
             </div>
 
-            {/* Quick Loan Amount Input */}
-            <div className="flex items-center bg-stone-50 border border-stone-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-emerald-600 focus-within:border-emerald-600">
-              <span className="px-2.5 py-1.5 bg-stone-100 text-stone-700 font-bold text-xs border-r border-stone-300 whitespace-nowrap flex items-center gap-1">
-                <IndianRupee className="w-3.5 h-3.5 text-emerald-800" />
-                <span>கடன் தொகை ₹</span>
-              </span>
-              <input
-                type="text"
-                value={loanAmount}
-                onChange={(e) => {
-                  setLoanAmount(e.target.value);
-                  setLoanReqAmount(e.target.value);
-                }}
-                placeholder="எ.கா: 1,60,000"
-                className="w-24 sm:w-28 px-2.5 py-1.5 bg-transparent font-bold text-stone-900 text-xs sm:text-sm focus:outline-none"
-              />
-            </div>
+
           </div>
 
           {/* Right: Action Buttons */}
