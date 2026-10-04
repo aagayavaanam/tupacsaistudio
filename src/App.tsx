@@ -27,6 +27,7 @@ import {
   INITIAL_DISBURSEMENTS, 
   INITIAL_BANK_ACCOUNTS 
 } from './data/initialData';
+import { fetchMembersFromGoogleSheet, DEFAULT_SPREADSHEET_ID } from './utils/googleSheetClient';
 
 const LOCAL_STORAGE_KEYS = {
   MEMBERS: 'tu3_paccs_members_v2',
@@ -99,7 +100,7 @@ export default function App() {
   });
 
   const [spreadsheetId, setSpreadsheetId] = useState<string>(() => {
-    return localStorage.getItem('tu3_paccs_sheet_id') || '';
+    return localStorage.getItem('tu3_paccs_sheet_id') || DEFAULT_SPREADSHEET_ID;
   });
 
   useEffect(() => {
@@ -107,6 +108,18 @@ export default function App() {
       localStorage.setItem('tu3_paccs_sheet_id', spreadsheetId);
     }
   }, [spreadsheetId]);
+
+  // Auto-fetch members from Google Sheet on start if on a fresh computer (where members <= 7)
+  useEffect(() => {
+    if (members.length <= 7) {
+      fetchMembersFromGoogleSheet(spreadsheetId || DEFAULT_SPREADSHEET_ID).then((res) => {
+        if (res.success && res.members.length > 7) {
+          setMembers(res.members);
+        }
+      });
+    }
+  }, [spreadsheetId]);
+
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.MEMBERS, JSON.stringify(members));
   }, [members]);

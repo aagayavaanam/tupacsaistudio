@@ -136,7 +136,7 @@ function getSheetsClient(req: express.Request) {
 app.get('/api/sheets/members', async (req, res) => {
   try {
     const forceRefresh = req.query.forceRefresh === 'true';
-    const spreadsheetId = (req.query.spreadsheetId as string) || process.env.SPREADSHEET_ID;
+    const spreadsheetId = (req.query.spreadsheetId as string) || process.env.SPREADSHEET_ID || '1YJlGj7g2yH9kN_2-JVEuuHrIQhJ_ZGvHgGPh_Xg13pI';
 
     // First check SQLite Database
     if (!forceRefresh) {

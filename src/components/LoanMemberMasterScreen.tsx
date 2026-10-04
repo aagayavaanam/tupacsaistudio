@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { LoanMember } from '../types';
 import { formatMobile, formatRationCard, formatMDCC, formatAadhar, formatIndianCurrency, formatIndianInputNumber, extractSpreadsheetId } from '../utils/formatters';
 import { 
@@ -29,8 +29,15 @@ import {
   Fingerprint,
   Filter,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Printer,
+  Copy,
+  Check,
+  IdCard,
+  ChevronRight,
+  Hash
 } from 'lucide-react';
+import { MemberDossierView } from './MemberDossierView';
 
 interface LoanMemberMasterScreenProps {
   members: LoanMember[];
@@ -50,12 +57,14 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchCategory, setSearchCategory] = useState<'all' | 'name' | 'memberNo' | 'aadhar'>('all');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode, setViewMode] = useState<'table' | 'dossier'>('table');
+  const [selectedDossierMember, setSelectedDossierMember] = useState<LoanMember | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [selectedMemberDetail, setSelectedMemberDetail] = useState<LoanMember | null>(null);
   const [editingMember, setEditingMember] = useState<LoanMember | null>(null);
   
   // Sheet sync states
-  const [sheetInput, setSheetInput] = useState<string>(spreadsheetId || '');
+  const [sheetInput, setSheetInput] = useState<string>(spreadsheetId || '1YJlGj7g2yH9kN_2-JVEuuHrIQhJ_ZGvHgGPh_Xg13pI');
   const [isFetchingSheet, setIsFetchingSheet] = useState<boolean>(false);
   const [isSubmittingToSheet, setIsSubmittingToSheet] = useState<boolean>(false);
   const [sheetStatusMsg, setSheetStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -135,6 +144,180 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
       );
     });
   }, [members, searchTerm, searchCategory]);
+
+  // Active member for Dossier inspector view
+  const activeDossierMember = selectedDossierMember || filteredMembers[0] || null;
+
+  const handleCopyText = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(label);
+    setTimeout(() => setCopiedField(null), 1800);
+  };
+
+  const handleExportCSV = () => {
+    if (filteredMembers.length === 0) return;
+    const headers = [
+      'வரிசை எண்', 'A Class', 'SB எண்', 'ERP எண்', 'Ins', 'உறுப்பினர் பெயர்', 'தந்தை/கணவர் (C/o)', 
+      'கதவு எண்', 'தெரு', 'கிராமம்', 'ஆதார் எண்', 'கைபேசி எண்', 'குடும்ப அட்டை எண்', 
+      'வாரிசுதாரர்', 'உறவுமுறை', 'MDCC எண்', 'பிரிவு', 'பாலினம்', 'பங்கு தொகை'
+    ];
+    const rows = filteredMembers.map((m, idx) => [
+      idx + 1,
+      m.aClass || m.memberNo,
+      m.sb || '',
+      m.erp || '',
+      m.ins || '',
+      `"${(m.name || '').replace(/"/g, '""')}"`,
+      `"${(m.careOf || m.fatherOrHusbandName || '').replace(/"/g, '""')}"`,
+      `"${(m.door || '').replace(/"/g, '""')}"`,
+      `"${(m.street || '').replace(/"/g, '""')}"`,
+      `"${(m.village || '').replace(/"/g, '""')}"`,
+      `'${m.aadharNo || m.adhar || ''}`,
+      `'${m.mobile || ''}`,
+      `"${(m.rationCard || '').replace(/"/g, '""')}"`,
+      `"${(m.namini || '').replace(/"/g, '""')}"`,
+      `"${(m.relation || '').replace(/"/g, '""')}"`,
+      `'${m.mdcc || ''}`,
+      `"${(m.caste || '').replace(/"/g, '""')}"`,
+      `"${(m.gender || '').replace(/"/g, '""')}"`,
+      m.totalShare ?? m.landAcres ?? 0
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `TU3_உறுப்பினர்_பட்டியல்_18பத்திகள்_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportJSON = () => {
+    if (members.length === 0) return;
+    const blob = new Blob([JSON.stringify(members, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `TU3_உறுப்பினர்கள்_${members.length}_பேர்_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          onSetMembers(parsed);
+          setSheetStatusMsg({
+            type: 'success',
+            text: `வெற்றிகரமாக ${parsed.length} உறுப்பினர்களின் விபரங்கள் JSON கோப்பிலிருந்து ஏற்றப்பட்டன!`
+          });
+        } else {
+          setSheetStatusMsg({
+            type: 'error',
+            text: 'கோப்பில் செல்லுபடியாகும் உறுப்பினர்களின் விபரங்கள் கிடைக்கவில்லை.'
+          });
+        }
+      } catch (err) {
+        setSheetStatusMsg({
+          type: 'error',
+          text: 'JSON கோப்பை வாசிப்பதில் பிழை ஏற்பட்டது.'
+        });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handlePrintDossier = (m: LoanMember) => {
+    let printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    const html = `<!DOCTYPE html>
+<html lang="ta">
+<head>
+  <meta charset="utf-8" />
+  <title>உறுப்பினர் சுயவிவர ஏடு - ${m.name} (A-${m.aClass || m.memberNo})</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111; margin: 0; padding: 15px; }
+    .header { text-align: center; border-bottom: 2.5px solid #007A4D; padding-bottom: 12px; margin-bottom: 16px; }
+    .header h2 { margin: 0; color: #007A4D; font-size: 19px; }
+    .header p { margin: 4px 0 0 0; font-size: 13px; color: #444; }
+    .title-box { background: #eaf4ef; padding: 6px 14px; display: inline-block; border-radius: 6px; font-weight: 800; font-size: 14px; margin-top: 8px; color: #007A4D; border: 1px solid #c2e2d3; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
+    th, td { border: 1px solid #444; padding: 6px 10px; }
+    th { background: #f8fafc; text-align: left; width: 35%; font-weight: bold; }
+    .section-title { font-weight: 800; font-size: 13.5px; color: #007A4D; margin: 14px 0 6px 0; border-bottom: 1.5px solid #007A4D; padding-bottom: 3px; }
+    .sig-area { margin-top: 50px; display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>TU3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம்</h2>
+    <p>தேவாரம், உத்தமபாளையம் வட்டம், தேனி மாவட்டம்</p>
+    <div class="title-box">உறுப்பினர் சுயவிவர ஏடு - A Class: ${m.aClass || m.memberNo} | பெயர்: ${m.name} ${m.ins ? `(${m.ins})` : ''}</div>
+  </div>
+
+  <div class="section-title">1. வங்கி &amp; கணக்கு அடையாள விபரங்கள்</div>
+  <table>
+    <tr><th>A Class (உறுப்பினர் எண்)</th><td><strong>${m.aClass || m.memberNo}</strong></td></tr>
+    <tr><th>SB (வங்கி கணக்கு எண்)</th><td>${m.sb || '-'}</td></tr>
+    <tr><th>ERP எண்</th><td>${m.erp || '-'}</td></tr>
+    <tr><th>MDCC எண்</th><td>${m.mdcc || '-'}</td></tr>
+  </table>
+
+  <div class="section-title">2. தனிநபர் &amp; முழு முகவரி விபரங்கள்</div>
+  <table>
+    <tr><th>உறுப்பினர் பெயர் (Name)</th><td><strong>${m.name}</strong></td></tr>
+    <tr><th>தலைப்பெழுத்து (Ins)</th><td>${m.ins || '-'}</td></tr>
+    <tr><th>தந்தை / கணவர் பெயர் (C/o)</th><td>${m.careOf || m.fatherOrHusbandName || '-'}</td></tr>
+    <tr><th>கதவு எண் (Door)</th><td>${m.door || '-'}</td></tr>
+    <tr><th>தெரு (Street)</th><td>${m.street || '-'}</td></tr>
+    <tr><th>கிராமம் (Village)</th><td>${m.village || '-'}</td></tr>
+    <tr><th>பாலினம் (Gender)</th><td>${m.gender || '-'}</td></tr>
+    <tr><th>பிரிவு (Caste)</th><td>${m.caste || '-'}</td></tr>
+  </table>
+
+  <div class="section-title">3. அடையாள ஆவணங்கள் &amp; தொடர்பு</div>
+  <table>
+    <tr><th>ஆதார் எண் (Aadhar)</th><td><strong>${formatAadhar(m.aadharNo || m.adhar)}</strong></td></tr>
+    <tr><th>கைபேசி எண் (Mobile)</th><td><strong>${formatMobile(m.mobile)}</strong></td></tr>
+    <tr><th>குடும்ப அட்டை எண் (Ration Card)</th><td>${formatRationCard(m.rationCard)}</td></tr>
+  </table>
+
+  <div class="section-title">4. வாரிசுதாரர் &amp; பங்கு மூலதன விபரங்கள்</div>
+  <table>
+    <tr><th>வாரிசுதாரர் பெயர் (Namini)</th><td>${m.namini || '-'}</td></tr>
+    <tr><th>உறவுமுறை (Relation)</th><td>${m.relation || '-'}</td></tr>
+    <tr><th>பங்கு தொகை (Total Share)</th><td><strong>₹ ${m.totalShare ?? m.landAcres ?? 0}</strong></td></tr>
+  </table>
+
+  <div class="sig-area">
+    <div>உறுப்பினர் கையொப்பம்</div>
+    <div>செயலாளர் கையொப்பம்</div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 300);
+    });
+  </script>
+</body>
+</html>`;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
 
   const handleOpenAddModal = () => {
     setEditingMember(null);
@@ -475,21 +658,9 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
           </div>
 
           {/* View mode toggle */}
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            <span className="text-xs text-stone-500 font-medium hidden md:inline">பார்வை:</span>
-            <div className="flex items-center bg-[#FAF9F5] p-1 rounded-xl border border-[#E2E2DC]">
-              <button
-                onClick={() => setViewMode('cards')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'cards'
-                    ? 'bg-[#007A4D] text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-                title="கார்டு பார்வை"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>கார்டுகள்</span>
-              </button>
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            <span className="text-xs text-stone-500 font-bold hidden md:inline">பார்வை முறை:</span>
+            <div className="flex items-center bg-[#FAF9F5] p-1 rounded-xl border border-[#E2E2DC] shadow-2xs">
               <button
                 onClick={() => setViewMode('table')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -502,7 +673,64 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                 <Table className="w-3.5 h-3.5" />
                 <span>18 பத்திகள் அட்டவணை</span>
               </button>
+              <button
+                onClick={() => setViewMode('dossier')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'dossier'
+                    ? 'bg-[#007A4D] text-white shadow-2xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+                title="நவீன ஊடாடும் உறுப்பினர் சுயவிவரப் பலகை"
+              >
+                <IdCard className="w-3.5 h-3.5" />
+                <span>உறுப்பினர் விபர பலகை (Dossier)</span>
+              </button>
             </div>
+
+            {/* Quick Export & Print Action Buttons */}
+            <input 
+              type="file" 
+              ref={jsonFileInputRef} 
+              accept=".json" 
+              onChange={handleImportJSON} 
+              className="hidden" 
+            />
+
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="18 பத்திகள் கொண்ட முழு பட்டியலை CSV கோப்பாக பதிவிறக்குக"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">CSV பதிவிறக்கம்</span>
+            </button>
+
+            <button
+              onClick={handleExportJSON}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="அனைத்து உறுப்பினர்களின் முழு காப்புப் பிரதியை (JSON Backup) பதிவிறக்க"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">காப்புப் பிரதி (Backup)</span>
+            </button>
+
+            <button
+              onClick={() => jsonFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="வேறு கணினியிலிருந்து பெறப்பட்ட JSON காப்புப் பிரதியை பதிவேற்ற (Restore)"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">மீட்டெடு (Restore)</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-300 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="அட்டவணையை அச்சிடுக"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">அச்சிடு</span>
+            </button>
           </div>
         </div>
 
@@ -633,8 +861,18 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
         )}
       </div>
 
-      {/* Members Display: Card View or Table View */}
-      {viewMode === 'cards' ? (
+      {/* Members Display: Table View (Primary) or Modern Interactive Member Dossier */}
+      {viewMode === 'dossier' && (
+        <MemberDossierView
+          members={filteredMembers}
+          activeMember={activeDossierMember}
+          onSelectMember={(m) => setSelectedDossierMember(m)}
+          onEditMember={(m) => handleOpenEditModal(m)}
+          onPrintDossier={(m) => handlePrintDossier(m)}
+          onSwitchToTable={() => setViewMode('table')}
+        />
+      )}
+      {false && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {filteredMembers.length > 0 ? (
             filteredMembers.map((m) => (
@@ -841,18 +1079,36 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
             </div>
           )}
         </div>
-      ) : (
-        /* Full 18-Header Table View */
+      )}
+
+      {/* Full 18-Header Table View */}
+      {viewMode === 'table' && (
         <div className="bg-white rounded-2xl border border-[#E2E2DC] shadow-2xs overflow-hidden">
+          {/* Table Header Bar with Counts & Quick Info */}
+          <div className="px-4 py-3 bg-[#FAF9F5] border-b border-[#E2E2DC] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-[#007A4D] bg-[#D1EAE0] px-2.5 py-1 rounded-md border border-[#007A4D]/20">
+                18 பத்திகள் முழு அட்டவணை
+              </span>
+              <span className="text-stone-600 font-bold">
+                காட்டப்படும் உறுப்பினர்கள்: <strong className="text-stone-900">{filteredMembers.length}</strong> / {members.length}
+              </span>
+            </div>
+            <div className="text-[11px] text-stone-500 font-medium">
+              💡 வரியை கிளிக் செய்து முழு விபரப் பலகையில் (Dossier) காணலாம்
+            </div>
+          </div>
+
           <div className="overflow-x-auto max-w-full">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#007A4D] text-white border-b border-[#005c3a] font-bold whitespace-nowrap">
+                <tr className="bg-[#007A4D] text-white border-b border-[#005c3a] font-bold whitespace-nowrap sticky top-0 z-10 shadow-xs">
+                  <th className="p-3 text-center w-12">வ.எண்</th>
                   <th className="p-3">A Class</th>
                   <th className="p-3">SB</th>
                   <th className="p-3">ERP</th>
                   <th className="p-3">Ins</th>
-                  <th className="p-3">Name</th>
+                  <th className="p-3">உறுப்பினர் பெயர் (Name)</th>
                   <th className="p-3">C/o</th>
                   <th className="p-3">Door</th>
                   <th className="p-3">Street</th>
@@ -871,13 +1127,25 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
               </thead>
               <tbody className="divide-y divide-[#E2E2DC]">
                 {filteredMembers.length > 0 ? (
-                  filteredMembers.map((m) => (
-                    <tr key={m.memberNo} className="hover:bg-[#D1EAE0]/30 transition-colors whitespace-nowrap">
-                      <td className="p-3 font-extrabold text-[#007A4D] bg-[#D1EAE0]/20">{m.aClass || m.memberNo}</td>
+                  filteredMembers.map((m, idx) => (
+                    <tr 
+                      key={m.memberNo} 
+                      onClick={() => {
+                        setSelectedDossierMember(m);
+                      }}
+                      className="hover:bg-[#D1EAE0]/30 transition-colors whitespace-nowrap cursor-pointer group"
+                    >
+                      <td className="p-3 text-center text-stone-500 font-mono font-bold bg-[#FAF9F5] group-hover:bg-[#D1EAE0]/40">
+                        {idx + 1}
+                      </td>
+                      <td className="p-3 font-extrabold text-[#007A4D] bg-[#D1EAE0]/20 font-mono">A-{m.aClass || m.memberNo}</td>
                       <td className="p-3 font-semibold text-stone-800">{m.sb || '-'}</td>
                       <td className="p-3 font-mono text-stone-700">{m.erp || '-'}</td>
-                      <td className="p-3 text-stone-700">{m.ins || '-'}</td>
-                      <td className="p-3 font-bold text-stone-900">{m.name}</td>
+                      <td className="p-3 text-stone-700 font-semibold">{m.ins || '-'}</td>
+                      <td className="p-3 font-bold text-stone-900 flex items-center gap-1.5">
+                        <span>{m.name}</span>
+                        {m.ins && <span className="text-[#007A4D] font-mono text-[11px]">({m.ins})</span>}
+                      </td>
                       <td className="p-3 text-stone-700">{m.careOf || m.fatherOrHusbandName || '-'}</td>
                       <td className="p-3 text-stone-600">{m.door || '-'}</td>
                       <td className="p-3 text-stone-600">{m.street || '-'}</td>
@@ -889,10 +1157,20 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                       <td className="p-3 text-stone-600">{m.relation || '-'}</td>
                       <td className="p-3 font-mono text-stone-700">{formatMDCC(m.mdcc)}</td>
                       <td className="p-3 text-stone-600">{m.caste || '-'}</td>
-                      <td className="p-3 text-slate-600">{m.gender || '-'}</td>
+                      <td className="p-3 text-slate-600 font-medium">{m.gender || '-'}</td>
                       <td className="p-3 font-bold text-emerald-700 font-mono">{formatIndianCurrency(m.totalShare ?? m.landAcres)}</td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              setSelectedDossierMember(m);
+                              setViewMode('dossier');
+                            }}
+                            className="p-1.5 bg-[#D1EAE0] hover:bg-[#007A4D] hover:text-white text-[#007A4D] rounded-md transition-colors cursor-pointer"
+                            title="நவீன விபர பலகையில் காண்க (Dossier View)"
+                          >
+                            <IdCard className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleOpenEditModal(m)}
                             className="p-1.5 bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 rounded-md transition-colors cursor-pointer"
@@ -903,9 +1181,16 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                           <button
                             onClick={() => setSelectedMemberDetail(m)}
                             className="p-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-md transition-colors cursor-pointer"
-                            title="விபரம் பார்க்க"
+                            title="முழு விபரம் மேலடுக்கில் பார்க்க"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handlePrintDossier(m)}
+                            className="p-1.5 bg-stone-100 hover:bg-stone-700 hover:text-white text-stone-700 rounded-md transition-colors cursor-pointer"
+                            title="உறுப்பினர் விபர அட்டை அச்சிடு"
+                          >
+                            <Printer className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
