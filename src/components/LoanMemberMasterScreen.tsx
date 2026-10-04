@@ -35,14 +35,18 @@ import {
   Check,
   IdCard,
   ChevronRight,
-  Hash
+  Hash,
+  Trash2
 } from 'lucide-react';
 import { MemberDossierView } from './MemberDossierView';
+import { fetchMembersFromGoogleSheet, DEFAULT_SPREADSHEET_ID } from '../utils/googleSheetClient';
+import { deleteMemberFromFirestore, saveMemberToFirestore } from '../services/memberFirestoreService';
 
 interface LoanMemberMasterScreenProps {
   members: LoanMember[];
   onAddMember: (member: LoanMember) => void;
   onSetMembers: (members: LoanMember[]) => void;
+  onDeleteMember?: (memberNo: string) => void;
   spreadsheetId: string;
   onSetSpreadsheetId: (id: string) => void;
 }
@@ -51,12 +55,15 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
   members,
   onAddMember,
   onSetMembers,
+  onDeleteMember,
   spreadsheetId,
   onSetSpreadsheetId
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchCategory, setSearchCategory] = useState<'all' | 'name' | 'memberNo' | 'aadhar'>('all');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [memberToDelete, setMemberToDelete] = useState<LoanMember | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'table' | 'dossier'>('table');
   const [selectedDossierMember, setSelectedDossierMember] = useState<LoanMember | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -236,6 +243,52 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
     e.target.value = '';
   };
 
+  const handleDeleteMemberConfirm = (m: LoanMember) => {
+    setMemberToDelete(m);
+  };
+
+  const handleExecuteDelete = async () => {
+    if (!memberToDelete) return;
+    const targetNo = memberToDelete.memberNo || memberToDelete.aClass;
+    setIsDeleting(true);
+
+    try {
+      // 1. Delete from Firebase Firestore Cloud DB
+      await deleteMemberFromFirestore(targetNo);
+
+      // 2. Also call backend delete endpoint
+      fetch(`/api/sheets/members/${encodeURIComponent(targetNo)}`, { method: 'DELETE' }).catch(() => {});
+
+      // 3. Update React state
+      if (onDeleteMember) {
+        onDeleteMember(targetNo);
+      } else {
+        onSetMembers(members.filter((m) => (m.memberNo || m.aClass) !== targetNo));
+      }
+
+      setSheetStatusMsg({
+        type: 'success',
+        text: `உறுப்பினர் [A-${memberToDelete.aClass || memberToDelete.memberNo}] ${memberToDelete.name} வெற்றிகரமாக நீக்கப்பட்டார்!`
+      });
+
+      if (selectedDossierMember && (selectedDossierMember.memberNo || selectedDossierMember.aClass) === targetNo) {
+        setSelectedDossierMember(null);
+      }
+      if (selectedMemberDetail && (selectedMemberDetail.memberNo || selectedMemberDetail.aClass) === targetNo) {
+        setSelectedMemberDetail(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSheetStatusMsg({
+        type: 'error',
+        text: 'உறுப்பினரை நீக்குவதில் பிழை: ' + (err.message || String(err))
+      });
+    } finally {
+      setIsDeleting(false);
+      setMemberToDelete(null);
+    }
+  };
+
   const handlePrintDossier = (m: LoanMember) => {
     let printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -384,34 +437,19 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
 
     onSetSpreadsheetId(cleanId);
     setIsFetchingSheet(true);
-    setSheetStatusMsg({ type: 'info', text: 'கூகுள் சீட் Masterdata -> Loanmember தரவுகள் பெறப்படுகின்றன...' });
+    setSheetStatusMsg({ type: 'info', text: 'கூகுள் சீட் Loanmember தரவுகள் பெறப்படுகின்றன...' });
 
     try {
-      const response = await fetch(`/api/sheets/members?spreadsheetId=${cleanId}`);
-      const data = await response.json();
+      const result = await fetchMembersFromGoogleSheet(cleanId);
 
-      if (!response.ok) {
-        const errorMsg = data.details 
-          ? `${data.error || 'பிழை ஏற்பட்டது'} (${data.details})`
-          : (data.error || 'கூகுள் சீட் பெற முடியவில்லை');
-        throw new Error(errorMsg);
-      }
-
-      if (data.headers && data.headers.length > 0) {
-        setSheetHeaders(data.headers);
-      }
-
-      if (data.members && data.members.length > 0) {
-        onSetMembers(data.members);
+      if (result.success && result.members && result.members.length > 0) {
+        onSetMembers(result.members);
         setSheetStatusMsg({
           type: 'success',
-          text: `வெற்றியுடன் ${data.members.length} உறுப்பினர்களின் தகவல்கள் கூகுள் சீட்டிலிருந்து பெறப்பட்டன!`
+          text: `வெற்றியுடன் ${result.members.length} உறுப்பினர்களின் தகவல்கள் கூகுள் சீட்டிலிருந்து புதுப்பிக்கப்பட்டன!`
         });
       } else {
-        setSheetStatusMsg({
-          type: 'info',
-          text: 'கூகுள் சீட்டில் தரவுகள் ஏதுமில்லை. அல்லது Loanmember சீட் தயார் நிலையில் உள்ளது.'
-        });
+        throw new Error(result.error || 'கூகுள் சீட்டில் தரவுகள் கிடைக்கவில்லை அல்லது அனுமதி இல்லை.');
       }
     } catch (err: any) {
       console.error(err);
@@ -453,6 +491,13 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
       kccAccountNo: editingMember?.kccAccountNo || `KCC-${Math.floor(330000 + Math.random() * 90000)}`,
       bankBranch: editingMember?.bankBranch || 'TU3 PACCS தலைமை கிளை'
     };
+
+    // 1. Save permanently to Firebase Firestore
+    try {
+      await saveMemberToFirestore(memberObj);
+    } catch (e) {
+      console.warn('Firestore save notice:', e);
+    }
 
     if (editingMember) {
       // Update existing member in state and local storage
@@ -869,6 +914,7 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
           onSelectMember={(m) => setSelectedDossierMember(m)}
           onEditMember={(m) => handleOpenEditModal(m)}
           onPrintDossier={(m) => handlePrintDossier(m)}
+          onDeleteMember={(m) => handleDeleteMemberConfirm(m)}
           onSwitchToTable={() => setViewMode('table')}
         />
       )}
@@ -1191,6 +1237,14 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                             title="உறுப்பினர் விபர அட்டை அச்சிடு"
                           >
                             <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMemberConfirm(m)}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 border border-rose-200 hover:border-rose-600 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[11px] shadow-2xs"
+                            title="இந்த உறுப்பினரை நிரந்தரமாக நீக்க (Delete Member)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>நீக்கு</span>
                           </button>
                         </div>
                       </td>
@@ -1778,6 +1832,81 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Member Confirmation Modal */}
+      {memberToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-rose-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-rose-600 to-rose-700 p-5 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base leading-tight">உறுப்பினரை நீக்குவதை உறுதிப்படுத்தவும்</h3>
+                <p className="text-xs text-rose-100">Firebase Firestore தரவுத்தளத்திலிருந்து நிரந்தரமாக நீக்கப்படும்</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-rose-50/70 rounded-xl border border-rose-200 text-xs space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-medium">A Class (உறுப்பினர் எண்):</span>
+                  <strong className="text-rose-700 font-mono text-sm font-black">A-{memberToDelete.aClass || memberToDelete.memberNo}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-medium">உறுப்பினர் பெயர்:</span>
+                  <strong className="text-stone-900 font-bold text-sm">{memberToDelete.name} {memberToDelete.ins ? `(${memberToDelete.ins})` : ''}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-medium">தந்தை/கணவர் பெயர்:</span>
+                  <span className="text-stone-800">{memberToDelete.careOf || memberToDelete.fatherOrHusbandName || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-medium">கிராமம்:</span>
+                  <span className="text-stone-800">{memberToDelete.village || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-medium">SB கணக்கு:</span>
+                  <span className="text-stone-800 font-mono">{memberToDelete.sb || '-'}</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-stone-600 leading-relaxed">
+                நீங்கள் <strong>{memberToDelete.name}</strong> அவர்களின் விபரங்களை நிரந்தரமாக நீக்க விரும்புகிறீர்களா? இந்த செயல் Firebase Firestore மற்றும் பட்டியலில் இருந்து உடனே நீக்கப்படும்.
+              </p>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setMemberToDelete(null)}
+                  className="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-100 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  ரத்து செய் (Cancel)
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleExecuteDelete}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>நீக்கப்படுகிறது...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>ஆம், நிரந்தரமாக நீக்கு</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

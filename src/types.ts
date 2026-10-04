@@ -1,4 +1,5 @@
 export interface LoanMember {
+  id?: string;
   memberNo: string;
   name: string;
   fatherOrHusbandName: string;
@@ -25,6 +26,7 @@ export interface LoanMember {
   totalShare?: string | number;
   kccAccountNo?: string;
   bankBranch?: string;
+  updatedAt?: string;
 }
 
 export interface Part1RCLDetails {

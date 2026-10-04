@@ -21,7 +21,8 @@ import {
   ChevronRight, 
   Table as TableIcon,
   Check,
-  Fingerprint
+  Fingerprint,
+  Trash2
 } from 'lucide-react';
 
 interface MemberDossierViewProps {
@@ -30,6 +31,7 @@ interface MemberDossierViewProps {
   onSelectMember: (member: LoanMember) => void;
   onEditMember: (member: LoanMember) => void;
   onPrintDossier: (member: LoanMember) => void;
+  onDeleteMember?: (member: LoanMember) => void;
   onSwitchToTable: () => void;
 }
 
@@ -39,6 +41,7 @@ export const MemberDossierView: React.FC<MemberDossierViewProps> = ({
   onSelectMember,
   onEditMember,
   onPrintDossier,
+  onDeleteMember,
   onSwitchToTable
 }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -179,6 +182,16 @@ export const MemberDossierView: React.FC<MemberDossierViewProps> = ({
                     <TableIcon className="w-3.5 h-3.5" />
                     <span>அட்டவணை</span>
                   </button>
+                  {onDeleteMember && (
+                    <button
+                      onClick={() => onDeleteMember(activeMember)}
+                      className="flex items-center gap-1.5 bg-rose-600/90 hover:bg-rose-700 text-white border border-rose-300/40 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                      title="இந்த உறுப்பினரை நிரந்தரமாக நீக்க (Delete)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>நீக்கு</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

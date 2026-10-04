@@ -164,6 +164,21 @@ export async function saveMemberToFirestore(member: any) {
   }
 }
 
+export async function deleteMemberFromFirestore(memberNo: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+
+  try {
+    const cleanNo = String(memberNo).trim();
+    if (!cleanNo) return false;
+    await deleteDoc(doc(db, 'members', `mem_${cleanNo}`));
+    return true;
+  } catch (err: any) {
+    console.error('Error deleting member from Firestore:', err?.message || err);
+    return false;
+  }
+}
+
 // =====================================
 // PADUVADA FIRESTORE OPERATIONS
 // =====================================

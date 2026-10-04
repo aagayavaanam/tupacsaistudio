@@ -28,6 +28,7 @@ import {
   INITIAL_BANK_ACCOUNTS 
 } from './data/initialData';
 import { fetchMembersFromGoogleSheet, DEFAULT_SPREADSHEET_ID } from './utils/googleSheetClient';
+import { getMembersFromFirestore, saveMemberToFirestore, deleteMemberFromFirestore } from './services/memberFirestoreService';
 
 const LOCAL_STORAGE_KEYS = {
   MEMBERS: 'tu3_paccs_members_v2',
@@ -109,16 +110,18 @@ export default function App() {
     }
   }, [spreadsheetId]);
 
-  // Auto-fetch members from Google Sheet on start if on a fresh computer (where members <= 7)
+  // Primary: Load members from Firebase Firestore Cloud Database
   useEffect(() => {
-    if (members.length <= 7) {
-      fetchMembersFromGoogleSheet(spreadsheetId || DEFAULT_SPREADSHEET_ID).then((res) => {
-        if (res.success && res.members.length > 7) {
-          setMembers(res.members);
+    getMembersFromFirestore()
+      .then((fsMembers) => {
+        if (fsMembers && fsMembers.length > 0) {
+          setMembers(fsMembers);
         }
+      })
+      .catch((err) => {
+        console.warn('Firestore load notice:', err);
       });
-    }
-  }, [spreadsheetId]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.MEMBERS, JSON.stringify(members));
@@ -163,9 +166,18 @@ export default function App() {
     });
   };
 
-  // Handler to add new Loanmember
-  const handleAddMember = (newMember: LoanMember) => {
-    setMembers((prev) => [newMember, ...prev]);
+  // Handler to add new Loanmember (saves to state and Firebase Firestore)
+  const handleAddMember = async (newMember: LoanMember) => {
+    setMembers((prev) => [
+      newMember, 
+      ...prev.filter(m => (m.memberNo || m.aClass) !== (newMember.memberNo || newMember.aClass))
+    ]);
+
+    try {
+      await saveMemberToFirestore(newMember);
+    } catch (e) {
+      console.warn('Firestore save notice:', e);
+    }
 
     // Also auto-create a default KCC Bank Account for the new member
     if (newMember.kccAccountNo) {
@@ -181,6 +193,17 @@ export default function App() {
         status: 'செயலில் உள்ளது (Active)'
       };
       setBankAccounts((prev) => [newAccount, ...prev]);
+    }
+  };
+
+  // Handler to delete member permanently from Firebase Firestore and state
+  const handleDeleteMember = async (memberNo: string) => {
+    const cleanNo = String(memberNo).trim();
+    setMembers((prev) => prev.filter((m) => (m.memberNo || m.aClass) !== cleanNo));
+    try {
+      await deleteMemberFromFirestore(cleanNo);
+    } catch (e) {
+      console.warn('Firestore delete notice:', e);
     }
   };
 
@@ -297,6 +320,7 @@ export default function App() {
               members={members}
               onAddMember={handleAddMember}
               onSetMembers={setMembers}
+              onDeleteMember={handleDeleteMember}
               spreadsheetId={spreadsheetId}
               onSetSpreadsheetId={setSpreadsheetId}
             />

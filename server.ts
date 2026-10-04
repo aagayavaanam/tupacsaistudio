@@ -39,6 +39,7 @@ import {
   deleteAhBankRowFromFirestore,
   getMembersFromFirestore,
   saveMemberToFirestore,
+  deleteMemberFromFirestore,
   getPaduvadaFromFirestore,
   savePaduvadaToFirestore,
   getAhPaduvadaFromFirestore,
@@ -138,8 +139,22 @@ app.get('/api/sheets/members', async (req, res) => {
     const forceRefresh = req.query.forceRefresh === 'true';
     const spreadsheetId = (req.query.spreadsheetId as string) || process.env.SPREADSHEET_ID || '1YJlGj7g2yH9kN_2-JVEuuHrIQhJ_ZGvHgGPh_Xg13pI';
 
-    // First check SQLite Database
+    // First check Firebase Firestore Database
     if (!forceRefresh) {
+      const fsMembers = await getMembersFromFirestore();
+      if (fsMembers && fsMembers.length > 0) {
+        return res.json({
+          success: true,
+          members: fsMembers,
+          headers: [
+            'A Class', 'SB', 'ERP', 'Ins', 'Name', 'C/o', 'Door', 'Street', 'Village',
+            'Adhar', 'Mobile', 'Ration Card', 'Namini', 'Relation', 'Mdcc', 'Caste', 'Gender', 'Total Share'
+          ],
+          total: fsMembers.length,
+          source: 'firestore'
+        });
+      }
+
       const dbMembers = await getMembersFromDb();
       if (dbMembers && dbMembers.length > 0) {
         return res.json({
@@ -531,6 +546,28 @@ app.post('/api/sheets/add-member', async (req, res) => {
     console.error('Error adding member:', error?.message || error);
     res.status(500).json({ 
       error: 'புதிய உறுப்பினரை பதிவிடுவதில் பிழை ஏற்பட்டது.',
+      details: error?.message || 'Unknown error'
+    });
+  }
+});
+
+// DELETE /api/sheets/members/:memberNo - Delete member from Firestore and database
+app.delete('/api/sheets/members/:memberNo', async (req, res) => {
+  try {
+    const { memberNo } = req.params;
+    if (!memberNo) {
+      return res.status(400).json({ success: false, error: 'உறுப்பினர் எண் தேவை.' });
+    }
+    await deleteMemberFromFirestore(memberNo);
+    res.json({ 
+      success: true, 
+      message: `உறுப்பினர் (${memberNo}) வெற்றிகரமாக நீக்கப்பட்டார்.` 
+    });
+  } catch (error: any) {
+    console.error('Error deleting member:', error?.message || error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'உறுப்பினரை நீக்குவதில் பிழை ஏற்பட்டது.',
       details: error?.message || 'Unknown error'
     });
   }
