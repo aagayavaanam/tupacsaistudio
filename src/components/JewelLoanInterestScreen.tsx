@@ -12,6 +12,7 @@ import {
   Users
 } from 'lucide-react';
 import { NavigationMenu } from '../types';
+import { TamilDateInput, getSystemTodayYMD, toDMY } from './TamilDateInput';
 
 interface JewelLoanInterestScreenProps {
   onNavigate?: (menu: NavigationMenu) => void;
@@ -20,8 +21,8 @@ interface JewelLoanInterestScreenProps {
 export const JewelLoanInterestScreen: React.FC<JewelLoanInterestScreenProps> = ({ onNavigate }) => {
   // Input states (In-Memory Only, No DB persistence)
   const [oldPrincipalInput, setOldPrincipalInput] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('2025-08-31');
-  const [endDate, setEndDate] = useState<string>('2026-08-31');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>(getSystemTodayYMD);
   const [normalRateInput, setNormalRateInput] = useState<string>('12.5');
   const [penalRateInput, setPenalRateInput] = useState<string>('3.0');
 
@@ -55,8 +56,8 @@ export const JewelLoanInterestScreen: React.FC<JewelLoanInterestScreenProps> = (
   // Reset function to clear inputs back to clean state
   const handleReset = () => {
     setOldPrincipalInput('');
-    setStartDate('2025-08-31');
-    setEndDate('2026-08-31');
+    setStartDate('');
+    setEndDate(getSystemTodayYMD());
     setNormalRateInput('12.5');
     setPenalRateInput('3.0');
     setNewPrincipalInput('');
@@ -71,7 +72,7 @@ export const JewelLoanInterestScreen: React.FC<JewelLoanInterestScreenProps> = (
   const handleLoadSample = () => {
     setOldPrincipalInput(formatIndianInput('100000'));
     setStartDate('2025-08-31');
-    setEndDate('2026-08-31');
+    setEndDate(getSystemTodayYMD());
     setNormalRateInput('12.5');
     setPenalRateInput('3.0');
     setNewPrincipalInput(formatIndianInput('125000'));
@@ -321,29 +322,19 @@ export const JewelLoanInterestScreen: React.FC<JewelLoanInterestScreenProps> = (
 
           {/* 2. Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-stone-700">
-                ஆரம்ப தேதி <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white text-stone-900 border border-[#D5D5CD] focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 rounded-xl px-3.5 py-2 text-sm font-mono font-bold outline-none transition-all"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-stone-700">
-                முடிவு தேதி <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-white text-stone-900 border border-[#D5D5CD] focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 rounded-xl px-3.5 py-2 text-sm font-mono font-bold outline-none transition-all"
-              />
-            </div>
+            <TamilDateInput
+              label="ஆரம்ப தேதி"
+              value={startDate}
+              onChange={setStartDate}
+              accentColor="amber"
+            />
+            <TamilDateInput
+              label="முடிவு தேதி"
+              value={endDate}
+              onChange={setEndDate}
+              isEndDate={true}
+              accentColor="amber"
+            />
           </div>
 
           {/* 3. Interest Rates */}

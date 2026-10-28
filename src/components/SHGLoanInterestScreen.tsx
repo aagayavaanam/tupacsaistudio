@@ -12,6 +12,7 @@ import {
   Gem
 } from 'lucide-react';
 import { NavigationMenu } from '../types';
+import { TamilDateInput, getSystemTodayYMD, toDMY } from './TamilDateInput';
 
 interface SHGLoanInterestScreenProps {
   onNavigate?: (menu: NavigationMenu) => void;
@@ -20,8 +21,8 @@ interface SHGLoanInterestScreenProps {
 export const SHGLoanInterestScreen: React.FC<SHGLoanInterestScreenProps> = ({ onNavigate }) => {
   // Input states (Temporary In-Memory Only, No DB persistence)
   const [principalInput, setPrincipalInput] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('2026-08-01');
-  const [endDate, setEndDate] = useState<string>('2026-08-31');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>(getSystemTodayYMD);
   const [normalRateInput, setNormalRateInput] = useState<string>('12.0');
   const [penalRateInput, setPenalRateInput] = useState<string>('3.0');
 
@@ -53,8 +54,8 @@ export const SHGLoanInterestScreen: React.FC<SHGLoanInterestScreenProps> = ({ on
   // Reset to initial clean state
   const handleReset = () => {
     setPrincipalInput('');
-    setStartDate('2026-08-01');
-    setEndDate('2026-08-31');
+    setStartDate('');
+    setEndDate(getSystemTodayYMD());
     setNormalRateInput('12.0');
     setPenalRateInput('3.0');
     setCurrentPaymentInput('');
@@ -67,7 +68,7 @@ export const SHGLoanInterestScreen: React.FC<SHGLoanInterestScreenProps> = ({ on
   const handleLoadSample = () => {
     setPrincipalInput(formatIndianInput('500000'));
     setStartDate('2026-08-01');
-    setEndDate('2026-08-31');
+    setEndDate(getSystemTodayYMD());
     setNormalRateInput('12.0');
     setPenalRateInput('3.0');
     setCurrentPaymentInput(formatIndianInput('50000'));
@@ -294,29 +295,19 @@ export const SHGLoanInterestScreen: React.FC<SHGLoanInterestScreenProps> = ({ on
 
           {/* 2. Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-stone-700">
-                ஆரம்ப தேதி <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white text-stone-900 border border-[#D5D5CD] focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-3.5 py-2 text-sm font-mono font-bold outline-none transition-all"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-stone-700">
-                முடிவு தேதி <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-white text-stone-900 border border-[#D5D5CD] focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-3.5 py-2 text-sm font-mono font-bold outline-none transition-all"
-              />
-            </div>
+            <TamilDateInput
+              label="ஆரம்ப தேதி"
+              value={startDate}
+              onChange={setStartDate}
+              accentColor="indigo"
+            />
+            <TamilDateInput
+              label="முடிவு தேதி"
+              value={endDate}
+              onChange={setEndDate}
+              isEndDate={true}
+              accentColor="indigo"
+            />
           </div>
 
           {/* 3. Interest Rates */}
