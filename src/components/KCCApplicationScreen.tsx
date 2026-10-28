@@ -1570,27 +1570,29 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
                 கடன் கோரும் விபரம்
               </div>
 
-              <table className="w-full border-collapse border border-black text-[11.5px]">
+              <table className="w-full table-fixed border-collapse border border-black text-[11px]">
                 <thead>
                   <tr className="text-center font-bold bg-stone-100">
-                    <th rowSpan={2} className="border border-black py-1.5 px-1 font-black">சாகுபடி செய்யும் பயிரின் பெயர்</th>
-                    <th colSpan={2} className="border border-black py-1.5 px-1 font-black">பயிரிட உள்ள</th>
-                    <th colSpan={5} className="border border-black py-1.5 px-1 font-black">கடன் தேவை விபரம்</th>
+                    <th rowSpan={2} className="border border-black py-1 px-1 font-black w-[16%] whitespace-normal break-words leading-tight text-[10px]">
+                      சாகுபடி செய்யும்<br />பயிரின் பெயர்
+                    </th>
+                    <th colSpan={2} className="border border-black py-1 px-1 font-black w-[19%]">பயிரிட உள்ள</th>
+                    <th colSpan={5} className="border border-black py-1 px-1 font-black w-[65%]">கடன் தேவை விபரம்</th>
                   </tr>
-                  <tr className="text-center font-bold bg-stone-50">
-                    <th className="border border-black py-1 px-1">சர்வே எண்</th>
-                    <th className="border border-black py-1 px-1">பரப்பு ஏ.செ.</th>
-                    <th className="border border-black py-1 px-1">விதை</th>
-                    <th className="border border-black py-1 px-1">உரம்</th>
-                    <th className="border border-black py-1 px-1">பூச்சி மருந்து</th>
-                    <th className="border border-black py-1 px-1">ரொக்கம்</th>
-                    <th className="border border-black py-1 px-1">மொத்தம்</th>
+                  <tr className="text-center font-bold bg-stone-50 text-[10.5px]">
+                    <th className="border border-black py-1 px-1 w-[10%]">சர்வே எண்</th>
+                    <th className="border border-black py-1 px-1 w-[9%] whitespace-normal leading-tight text-[10px]">பரப்பு ஏ.செ.</th>
+                    <th className="border border-black py-1 px-1 w-[13%] min-w-[70px]">விதை</th>
+                    <th className="border border-black py-1 px-1 w-[13%] min-w-[70px]">உரம்</th>
+                    <th className="border border-black py-1 px-1 w-[13%] min-w-[70px] whitespace-normal leading-tight text-[10px]">பூச்சி மருந்து</th>
+                    <th className="border border-black py-1 px-1 w-[13%] min-w-[70px]">ரொக்கம்</th>
+                    <th className="border border-black py-1 px-1 w-[13%] min-w-[75px]">மொத்தம்</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...Array(3)].map((_, i) => (
-                    <tr key={i} className="text-center h-7.5">
-                      <td className="border border-black p-1"></td>
+                    <tr key={i} className="text-center h-7.5 font-mono">
+                      <td className="border border-black p-1 text-[11px] font-sans"></td>
                       <td className="border border-black p-1"></td>
                       <td className="border border-black p-1"></td>
                       <td className="border border-black p-1"></td>
@@ -1600,8 +1602,8 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
                       <td className="border border-black p-1"></td>
                     </tr>
                   ))}
-                  <tr className="text-center font-bold bg-stone-50 h-7.5">
-                    <td className="border border-black p-1 font-black">மொத்தம்</td>
+                  <tr className="text-center font-bold bg-stone-50 h-7.5 font-mono">
+                    <td className="border border-black p-1 font-black font-sans">மொத்தம்</td>
                     <td className="border border-black p-1"></td>
                     <td className="border border-black p-1"></td>
                     <td className="border border-black p-1"></td>
@@ -1734,65 +1736,69 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
               பயிர் கடன்அளவு விகிதப்படி (Ratio) மேற்படி பயிருக்கு ஏக்கர் ஒன்றுக்கு அனுமதிக்கப்படும் தொகை:
             </div>
 
-            {/* Table: கடன் கோரும் பரப்பு ஏ செ - BLANK for manual entry */}
-            <table className="w-full border-collapse border border-black mt-1.5 text-[11px] text-center">
+            {/* Table: பயிர் & கடன் கோரும் பரப்பு ஏ செ விகிதப்படி - 1 ROW with பயிர் & Wrap Text as requested */}
+            <table className="w-full table-fixed border-collapse border border-black mt-1.5 text-[11px] text-center">
               <thead>
                 <tr className="font-bold bg-stone-50">
-                  <th className="border border-black py-1 px-1">கடன் கோரும் பரப்பு ஏ செ</th>
-                  <th className="border border-black py-1 px-1">விதை</th>
-                  <th className="border border-black py-1 px-1">இரசாயன உரம் 50%</th>
-                  <th className="border border-black py-1 px-1">தொழு உரம் 50%</th>
-                  <th className="border border-black py-1 px-1">பூச்சி மருந்து</th>
-                  <th className="border border-black py-1 px-1">ரொக்கம்</th>
-                  <th className="border border-black py-1 px-1">மொத்தம்</th>
+                  <th className="border border-black py-1 px-1.5 font-black w-[17%] min-w-[85px] text-[11.5px]">பயிர்</th>
+                  <th className="border border-black py-1 px-1 w-[11%] whitespace-normal break-words leading-tight text-[10px]">
+                    கடன் கோரும் பரப்பு ஏ செ
+                  </th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10.5px]">விதை</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10px] whitespace-normal leading-tight">இரசாயன உரம் 50%</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10px] whitespace-normal leading-tight">தொழு உரம் 50%</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10.5px] whitespace-normal leading-tight">பூச்சி மருந்து</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10.5px]">ரொக்கம்</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[11px]">மொத்தம்</th>
                 </tr>
               </thead>
               <tbody>
-                {[...Array(2)].map((_, i) => (
-                  <tr key={i} className="h-7.5">
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                  </tr>
-                ))}
+                <tr className="h-8">
+                  <td className="border border-black p-1 text-[11px]"></td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                  <td className="border border-black p-1 font-mono"></td>
+                </tr>
               </tbody>
             </table>
 
-            {/* Below Table: கடன் அனுமதிக்கப்படும் - BLANK for manual entry */}
-            <table className="w-full border-collapse border border-black mt-3 text-[11px] text-center">
+            {/* Below Table: கடன் அனுமதிக்கப்படும் - Grouped headers as requested */}
+            <table className="w-full table-fixed border-collapse border border-black mt-3 text-[11px] text-center">
               <thead>
                 <tr className="font-bold bg-stone-100">
-                  <th colSpan={2} className="border border-black py-1 px-1 font-black">கடன் அனுமதிக்கப்படும்</th>
-                  <th colSpan={2} className="border border-black py-1 px-1 font-black">பொருள் பகுதி</th>
-                  <th colSpan={2} className="border border-black py-1 px-1 font-black">ரொக்க பகுதி</th>
-                  <th colSpan={2} className="border border-black py-1 px-1 font-black">மொத்த கடன் தொகை</th>
+                  <th colSpan={3} className="border border-black py-1 px-1 font-black w-[34%]">கடன் அனுமதிக்கப்படும்</th>
+                  <th colSpan={2} className="border border-black py-1 px-1 font-black w-[21%]">பொருள் பகுதி</th>
+                  <th colSpan={3} className="border border-black py-1 px-1 font-black w-[33%]">ரொக்க பகுதி</th>
+                  <th colSpan={1} className="border border-black py-1 px-1 font-black w-[12%]">மொத்த கடன் தொகை</th>
                 </tr>
-                <tr className="font-bold bg-stone-50">
-                  <th className="border border-black py-1 px-1">சர்வே எண்</th>
-                  <th className="border border-black py-1 px-1">பரப்பு ஏசெ</th>
-                  <th className="border border-black py-1 px-1">விதை</th>
-                  <th className="border border-black py-1 px-1">உரம் 50%</th>
-                  <th className="border border-black py-1 px-1">தொழு</th>
-                  <th className="border border-black py-1 px-1">பூச்சி</th>
-                  <th className="border border-black py-1 px-1">ரொக்கம்</th>
-                  <th className="border border-black py-1 px-1">மொத்தம்</th>
+                <tr className="font-bold bg-stone-50 text-[10px]">
+                  <th className="border border-black py-1 px-1 w-[11%]">பயிர்</th>
+                  <th className="border border-black py-1 px-1 w-[14%] whitespace-normal leading-tight font-bold">சர்வே எண்கள்</th>
+                  <th className="border border-black py-1 px-1 w-[9%] whitespace-normal leading-tight">பரப்பு<br />ஏ செ</th>
+                  <th className="border border-black py-1 px-1 w-[10%]">விதை</th>
+                  <th className="border border-black py-1 px-1 w-[11%] whitespace-normal leading-tight">உரம்<br />50%</th>
+                  <th className="border border-black py-1 px-1 w-[11%] whitespace-normal leading-tight">தொழு உரம்<br />50%</th>
+                  <th className="border border-black py-1 px-1 w-[11%] whitespace-normal leading-tight">பூச்சி<br />மருந்து</th>
+                  <th className="border border-black py-1 px-1 w-[11%] text-[10.5px]">ரொக்கம்</th>
+                  <th className="border border-black py-1 px-1 w-[12%] text-[10.5px]">மொத்தம்</th>
                 </tr>
               </thead>
               <tbody>
-                {[...Array(3)].map((_, i) => (
+                {[...Array(4)].map((_, i) => (
                   <tr key={i} className="h-7.5">
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
-                    <td className="border border-black p-1"></td>
+                    <td className="border border-black p-1 text-[11px] font-sans"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
+                    <td className="border border-black p-1 font-mono"></td>
                   </tr>
                 ))}
               </tbody>
