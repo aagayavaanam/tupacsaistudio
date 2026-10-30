@@ -1788,7 +1788,7 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {[...Array(4)].map((_, i) => (
+                {[...Array(3)].map((_, i) => (
                   <tr key={i} className="h-7.5">
                     <td className="border border-black p-1 text-[11px] font-sans"></td>
                     <td className="border border-black p-1 font-mono"></td>
