@@ -1246,8 +1246,8 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
             <!-- Subject & Reference -->
             <div style="margin-bottom: 22px; font-size: 13px; line-height: 1.6; font-family: 'Times New Roman', Times, serif;">
-              <div style="font-weight: bold;">Subject &nbsp;&nbsp; KCC ${activeDisbNo || filterDisbNo || currentDisbNo || '1'}</div>
-              <div style="font-weight: bold;">Reference No. RCL No:${rclNumber || '107/25-26/P1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'}</div>
+              <div style="font-weight: bold;">Subject &nbsp;&nbsp; KCC AH ${activeDisbNo || filterDisbNo || currentDisbNo || '1'}</div>
+              <div style="font-weight: bold;">Reference No. RCL No:${rclNumber || '107/25-26/AH1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'}</div>
             </div>
 
             <!-- Draft for approval / Note அலுவலககுறிப்பு -->
@@ -1259,7 +1259,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
             <!-- Paragraph 1 -->
             <div style="text-align: justify; line-height: 1.85; font-size: 12.5px; margin-bottom: 20px;">
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;T.U.3 தேவாரம் தொடக்கவேளாண்மை கூட்டுறவுகடன் சங்கத்திற்கு மத்திய வங்கியிலிருந்து சாங்ஷனாகி வரவான RCL-${rclNumber || '107/25-26/P1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'} படி KCC பயிர் கடனுக்குரூ.${sanctionLakhs}.லட்சம்/-சாங்ஷன் பெறப்பட்டதில் சங்கநிர்வாகக்குழு தீர்மானஎண்: ${resolutionNo || '1'} நாள்:${formattedResDate} ன் படி &nbsp;<span class="amount-box" style="min-width: 32px;">${printItems.length}</span>&nbsp; நபருக்கு KCC காரியத்திற்கு &nbsp;<span class="amount-box">₹ ${formattedDisbTotal}</span>&nbsp; காசோலை எண் ........................ மூலம் கடன் கோரி தீர்மானம் இயற்றியுள்ளது.
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;T.U.3 தேவாரம் தொடக்கவேளாண்மை கூட்டுறவுகடன் சங்கத்திற்கு மத்திய வங்கியிலிருந்து சாங்ஷனாகி வரவான RCL-${rclNumber || '107/25-26/AH1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'} படி KCC கால்நடை பராமரிப்பு கடனுக்கு ரூ.${sanctionLakhs}.லட்சம்/-சாங்ஷன் பெறப்பட்டதில் சங்கநிர்வாகக்குழு தீர்மானஎண்: ${resolutionNo || '1'} நாள்:${formattedResDate} ன் படி &nbsp;<span class="amount-box" style="min-width: 32px;">${printItems.length}</span>&nbsp; நபருக்கு KCC காரியத்திற்கு &nbsp;<span class="amount-box">₹ ${formattedDisbTotal}</span>&nbsp; காசோலை எண் ........................ மூலம் கடன் கோரி தீர்மானம் இயற்றியுள்ளது.
             </div>
 
             <!-- Paragraph 2 -->
@@ -1267,14 +1267,14 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;மேற்படிசங்கத்திற்கு சரகமேற்பார்வையாளர் ........................ ந் தேதியில் கடன் அனுமதி உத்தரவில் கண்டுள்ள நிபந்தனைகளை நிவர்த்தி செய்துள்ளதென்றும் கடன் வாங்கிய நபர்கள் முறையாக திருப்பிச் செலுத்திவிட்டார்கள் என்றும் கடனுக்குரிய சிட்டா ஆவணங்களை சரிபார்க்கப்பட்டு சரியாக உள்ளதென்றும் போதியளவு பங்குத்தொகை உள்ளதென்றும் ஆண்டுக் கடனளவு பயிர் அட்டவணைக்கு உட்பட்டுள்ளது என சான்று செய்துள்ளார். இதற்கு முன்பெற்ற பட்டுவாடா ஜாபிதாவும் சான்று செய்து இத்துடன் இணைக்கப்பட்டுள்ளது. சங்க கே.சி.சி கடன் கணக்கில் பற்று எழுதி சங்க உறுப்பினர்கள் கே.சி.சி நடப்புகணக்கில் ஈடுசெய்து பட்டுவாடா வழங்க கீழ்கண்டவாறு பரிந்துரை செய்துள்ளார். சரக மேற்பார்வையாளர் பரிந்துரையை ஏற்று பட்டுவாடா வழங்க கிளை மேலாளர் அனுமதிக்கு
             </div>
 
-            <!-- 6-row side-by-side Table + Totals row -->
+            <!-- 6-row side-by-side Table + Totals row (Left side amounts blank for AH, Right side has breakdown amounts) -->
             <table class="breakdown-table">
               <tbody>
                 <!-- Row 1 -->
                 <tr>
                   <td style="width: 25px; text-align: center; font-weight: bold;">1</td>
                   <td style="width: 145px;">விதை பகுதி</td>
-                  <td style="width: 85px; text-align: right; font-weight: bold;">${Math.round(totSeed)}</td>
+                  <td style="width: 85px; text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="width: 25px; text-align: center; font-weight: bold;">1</td>
                   <td style="width: 175px;">சங்க நடப்பு கணக்கு</td>
                   <td style="width: 85px; text-align: right; font-weight: bold;">${Math.round(totalCurrentAccount)}</td>
@@ -1284,7 +1284,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tr>
                   <td style="text-align: center; font-weight: bold;">2</td>
                   <td>இரசாயன உரம்</td>
-                  <td style="text-align: right; font-weight: bold;">${Math.round(totChem)}</td>
+                  <td style="text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="text-align: center; font-weight: bold;">2</td>
                   <td>காசுக்கடன் - 6</td>
                   <td style="text-align: right; font-weight: bold;">${Math.round(totalKcc6Val)}</td>
@@ -1294,7 +1294,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tr>
                   <td style="text-align: center; font-weight: bold;">3</td>
                   <td>தொழு உரம்</td>
-                  <td style="text-align: right; font-weight: bold;">${Math.round(totComp)}</td>
+                  <td style="text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="text-align: center; font-weight: bold;">3</td>
                   <td>தனிநபர் விபத்துக் காப்பீடு</td>
                   <td style="text-align: right; font-weight: bold;">${Math.round(totalInsVal)}</td>
@@ -1304,7 +1304,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tr>
                   <td style="text-align: center; font-weight: bold;">4</td>
                   <td>பூச்சி மருந்து</td>
-                  <td style="text-align: right; font-weight: bold;">${Math.round(totPest)}</td>
+                  <td style="text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="text-align: center; font-weight: bold;">4</td>
                   <td>பயிர் காப்பீடு</td>
                   <td style="text-align: right; font-weight: bold;">${Math.round(totalCropInsurance)}</td>
@@ -1314,7 +1314,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tr>
                   <td style="text-align: center; font-weight: bold;">5</td>
                   <td>ரொக்கம்</td>
-                  <td style="text-align: right; font-weight: bold;">${Math.round(totCash)}</td>
+                  <td style="text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="text-align: center; font-weight: bold;">5</td>
                   <td>உறுப்பினர் சேமிப்பு கணக்கு</td>
                   <td style="text-align: right; font-weight: bold;">${Math.round(totalNetVal)}</td>
@@ -1323,8 +1323,8 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <!-- Row 6 -->
                 <tr>
                   <td style="text-align: center; font-weight: bold;">6</td>
-                  <td></td>
-                  <td style="text-align: right; font-weight: bold;">0</td>
+                  <td>&nbsp;</td>
+                  <td style="text-align: right; font-weight: bold;">&nbsp;</td>
                   <td style="text-align: center; font-weight: bold;">6</td>
                   <td>சிக்கனம் - இதரம்</td>
                   <td style="text-align: right; font-weight: bold;">${Math.round(totalThriftOther)}</td>
@@ -1333,7 +1333,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <!-- Total Row -->
                 <tr style="font-weight: 900; background: #ffffff;">
                   <td colspan="2" style="text-align: center; font-weight: 900;">மொத்தம்</td>
-                  <td style="text-align: right; font-weight: 900;">${Math.round(finalLeftTotal)}</td>
+                  <td style="text-align: right; font-weight: 900;">&nbsp;</td>
                   <td colspan="2" style="text-align: center; font-weight: 900;">மொத்தம்</td>
                   <td style="text-align: right; font-weight: 900;">${Math.round(finalRightTotal)}</td>
                 </tr>
@@ -1955,7 +1955,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '27.05.2026';
       const formattedResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
 
-      const rawRclNo = rclNumber || printItems.find(i => i.rclNumber)?.rclNumber || '107/25-26/P1';
+      const rawRclNo = rclNumber || printItems.find(i => i.rclNumber)?.rclNumber || '107/25-26/AH1';
       const effectiveRclFormatted = rawRclNo.toUpperCase().startsWith('RCL') ? rawRclNo : `RCL-${rawRclNo}`;
       const rawRclDate = rclDate || printItems.find(i => i.rclDate)?.rclDate || '15.04.2026';
       const formattedRclDate = formatDateDDMMYYYY(rawRclDate) || rawRclDate;
@@ -1966,7 +1966,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
         <html lang="ta">
           <head>
             <meta charset="utf-8" />
-            <title>7% வட்டி ஒப்புதல் - சுய உறுதிமொழி சான்று - KCC ${disbNumber}</title>
+            <title>7% வட்டி ஒப்புதல் - சுய உறுதிமொழி சான்று - KCC AH</title>
             <style>
               * {
                 box-sizing: border-box;
@@ -2077,7 +2077,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
               <!-- Main Body Paragraph -->
               <div style="text-align: justify; line-height: 1.85; font-size: 13.5px; margin-bottom: 36px;">
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கியிலிருந்து எங்களது TU3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கத்திற்கு <span class="bold-text">${effectiveRclFormatted}</span> <span class="bold-text">Dt:${formattedRclDate}</span>ன்படி அனுமதிக்கப்பட்டுள்ள <span class="bold-text">KCC-I / KCC-II மற்றும் KCC-AH</span> காசுக்கடன் நிதியுதவி / கடனுதவியிலிருந்து ………………..ம் நிதியாண்டிற்கு பெற்று எங்களது சங்க தீர்மானம் எண் : <span class="red-text">${effectiveResNo}</span> நாள் : <span class="red-text">${formattedResDate}</span> ந் தேதி இயற்றப்பட்டுள்ள தீர்மானத்தின்படி <span class="bold-text">KCC-${disbNumber}</span> காசுக்கடன் பட்டுவாடாவிற்கு <span class="red-text">${distinctMembersCount}</span> விவசாய உறுப்பினர்களுக்கு கடன் தொகையாக <span class="red-text">ரூ:${totalLoanSum}/-</span> மட்டும் வழங்கப்படுவதற்கு அதே உறுப்பினர்கள் பிற வங்கிகளில் விவசாயக்கடன் பெற்றுள்ளதாக பின்னேடு அறியவரும் நிலையில் அதனால் 7% வட்டிமானியம் கிடைப்பதில் ஏதேனும் இடர்பாடு ஏற்பட்டு அரசிடமிருந்து மானியமாக வரவேண்டிய வட்டித் தொகை மீளப்பெறாத சூழ்நிலையில் அந்நிதியிழப்பினை மத்திய வங்கிக்கு திரும்பச் செலுத்தி நேர் செய்யும் பொருட்டு எங்களது சங்கத்தின் சேமிப்பு கணக்கு / நடப்பு கணக்கிலிருந்து பற்றெழுதி நேர்செய்து கொள்ள சம்மதம் தெரிவித்துக் கொள்கிறோம்.
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கியிலிருந்து எங்களது TU3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கத்திற்கு <span class="bold-text">${effectiveRclFormatted}</span> <span class="bold-text">Dt:${formattedRclDate}</span>ன்படி அனுமதிக்கப்பட்டுள்ள <span class="bold-text">KCC-I / KCC-II மற்றும் KCC-AH</span> காசுக்கடன் நிதியுதவி / கடனுதவியிலிருந்து ………………..ம் நிதியாண்டிற்கு பெற்று எங்களது சங்க தீர்மானம் எண் : <span class="red-text">${effectiveResNo}</span> நாள் : <span class="red-text">${formattedResDate}</span> ந் தேதி இயற்றப்பட்டுள்ள தீர்மானத்தின்படி <span class="bold-text">KCC-AH</span> காசுக்கடன் பட்டுவாடாவிற்கு <span class="red-text">${distinctMembersCount}</span> விவசாய உறுப்பினர்களுக்கு கடன் தொகையாக <span class="red-text">ரூ:${totalLoanSum}/-</span> மட்டும் வழங்கப்படுவதற்கு அதே உறுப்பினர்கள் பிற வங்கிகளில் விவசாயக்கடன் பெற்றுள்ளதாக பின்னேடு அறியவரும் நிலையில் அதனால் 7% வட்டிமானியம் கிடைப்பதில் ஏதேனும் இடர்பாடு ஏற்பட்டு அரசிடமிருந்து மானியமாக வரவேண்டிய வட்டித் தொகை மீளப்பெறாத சூழ்நிலையில் அந்நிதியிழப்பினை மத்திய வங்கிக்கு திரும்பச் செலுத்தி நேர் செய்யும் பொருட்டு எங்களது சங்கத்தின் சேமிப்பு கணக்கு / நடப்பு கணக்கிலிருந்து பற்றெழுதி நேர்செய்து கொள்ள சம்மதம் தெரிவித்துக் கொள்கிறோம்.
               </div>
 
               <!-- Footer / Signatures Section -->
@@ -2115,7 +2115,10 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       });
       const distinctMembersCount = distinctMembersMap.size || printItems.length;
       const totalLoanSum = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
-      const totalAcresSum = printItems.reduce((acc, item) => acc + (parseFloat(item.acres) || 0), 0);
+      const totalLivestockCount = printItems.reduce((acc, item) => {
+        const countVal = parseFloat(String(item.livestockCount ?? item.acres ?? '0').replace(/[^0-9.]/g, '')) || 0;
+        return acc + countVal;
+      }, 0);
       const totalLoanWords = numberToTamilWords(totalLoanSum);
 
       const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
@@ -2154,7 +2157,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const rawRclDate = rclDate || printItems.find(i => i.rclDate)?.rclDate || '15-04-2026';
       const formattedRclDate = formatDateDDMMYYYY(rawRclDate) ? formatDateDDMMYYYY(rawRclDate).replace(/\./g, '-') : rawRclDate;
       const rawSanctioned = (sanctionedAmount || printItems[0]?.creditLimit || '10000000').toString().replace(/[^0-9]/g, '') || '10000000';
-      const sanctionedLimitFormatted = parseFloat(rawSanctioned).toLocaleString('en-IN');
+      const sanctionLimitFormatted = parseFloat(rawSanctioned).toLocaleString('en-IN');
 
       const parseInitialAndName = (item: any) => {
         let ins = (item.ins || (item as any).initial || '').toString().trim();
@@ -2177,9 +2180,11 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const tableRowsHtml = printItems.map((item, idx) => {
         const loanAmt = getItemLoanAmount(item);
         const { initial, name } = parseInitialAndName(item);
-        const acresVal = parseFloat(item.acres || '0') || 0;
-        const acresDisplay = acresVal > 0 ? (Number.isInteger(acresVal) ? acresVal.toString() : acresVal.toString()) : (item.acres || '-');
-        const loanDetailText = item.loanDetail || item.natureOfLoan || 'நபர் விபரம்';
+        const livestockTypeVal = item.livestockType || item.crop || '-';
+        const rawCount = item.livestockCount !== undefined && item.livestockCount !== null && item.livestockCount !== '' 
+          ? String(item.livestockCount) 
+          : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
+        const securityDetailText = item.guaranteeType || item.securityType || item.mortgageType || 'நபர் ஜாமீன்';
 
         return `
           <tr style="text-align: center; height: 32px; font-size: 11.5px;">
@@ -2189,11 +2194,10 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
             <td style="border: 1.5px solid black; padding: 4px 4px; font-weight: bold; font-family: monospace;">${item.erp || '-'}</td>
             <td style="border: 1.5px solid black; padding: 4px 3px; font-weight: bold; width: 26px;">${initial}</td>
             <td style="border: 1.5px solid black; padding: 4px 6px; text-align: left; font-weight: bold; white-space: nowrap;">${name}</td>
-            <td style="border: 1.5px solid black; padding: 4px 4px; font-family: monospace;">${item.surveyNo || '-'}</td>
-            <td style="border: 1.5px solid black; padding: 4px 4px; text-align: center;">${acresDisplay}</td>
-            <td style="border: 1.5px solid black; padding: 4px 4px;">${item.crop || '-'}</td>
-            <td style="border: 1.5px solid black; padding: 4px 6px; text-align: center; font-weight: bold;">${loanAmt}</td>
-            <td style="border: 1.5px solid black; padding: 4px 4px; font-size: 11px;">${loanDetailText}</td>
+            <td style="border: 1.5px solid black; padding: 4px 4px; font-weight: 600;">${livestockTypeVal}</td>
+            <td style="border: 1.5px solid black; padding: 4px 4px; text-align: center; font-weight: bold;">${rawCount}</td>
+            <td style="border: 1.5px solid black; padding: 4px 6px; text-align: right; font-weight: bold;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1.5px solid black; padding: 4px 4px; font-size: 11px;">${securityDetailText}</td>
           </tr>
         `;
       }).join('');
@@ -2307,10 +2311,10 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tbody>
                   <tr>
                     <td style="border: 1.5px solid #000000; padding: 6px 8px; text-align: justify; vertical-align: top;">
-                      &nbsp;&nbsp;&nbsp;&nbsp;நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்டமத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ளும் விசயம்.
+                      &nbsp;&nbsp;&nbsp;&nbsp;நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC AH விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்டமத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum.toLocaleString('en-IN')}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ளும் விசயம்.
                     </td>
                     <td style="border: 1.5px solid #000000; padding: 6px 8px; text-align: justify; vertical-align: top;">
-                      &nbsp;&nbsp;&nbsp;&nbsp;அவ்வாறே நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ள தீர்மானிக்கலாயிற்று.
+                      &nbsp;&nbsp;&nbsp;&nbsp;அவ்வாறே நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC AH விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum.toLocaleString('en-IN')}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ள தீர்மானிக்கலாயிற்று.
                     </td>
                   </tr>
                 </tbody>
@@ -2326,24 +2330,23 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                     <th style="width: 55px; border: 1.5px solid #000000; padding: 4px 2px;">ERP</th>
                     <th style="width: 32px; border: 1.5px solid #000000; padding: 4px 2px;">Initial</th>
                     <th style="border: 1.5px solid #000000; padding: 4px 6px;">பெயர்</th>
-                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 2px;">சர்வே எண்</th>
-                    <th style="width: 48px; border: 1.5px solid #000000; padding: 4px 2px;">பரப்பு</th>
-                    <th style="width: 58px; border: 1.5px solid #000000; padding: 4px 2px;">பயிர்</th>
-                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 4px;">கடன் தொகை</th>
-                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 4px;">கடன் விபரம்</th>
+                    <th style="width: 95px; border: 1.5px solid #000000; padding: 4px 2px;">கால்நடைகளின் வகை</th>
+                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 2px;">கால்நடைகளின் எண்ணிக்கை</th>
+                    <th style="width: 80px; border: 1.5px solid #000000; padding: 4px 4px;">கடன் தொகை</th>
+                    <th style="width: 80px; border: 1.5px solid #000000; padding: 4px 4px;">ஆதார விபரம்</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${tableRowsHtml}
-                  <!-- Totals Row matching PDF -->
+                  <!-- Totals Row matching format -->
                   <tr style="font-weight: 900; text-align: center; height: 32px;">
-                    <td colspan="7" style="border: 1.5px solid #000000; border-right: none;"></td>
-                    <td style="border: 1.5px solid #000000; border-left: none; padding: 4px 2px; font-weight: 900; font-size: 11.5px;">
-                      ${totalAcresSum.toFixed(2)}
-                    </td>
+                    <td colspan="6" style="border: 1.5px solid #000000; text-align: right; padding: 4px 10px; font-weight: 900; font-size: 11.5px;">மொத்தம்</td>
                     <td style="border: 1.5px solid #000000;"></td>
-                    <td style="border: 1.5px solid #000000; padding: 4px 4px; font-weight: 900; font-size: 11.5px;">
-                      ${totalLoanSum}
+                    <td style="border: 1.5px solid #000000; padding: 4px 2px; text-align: center; font-weight: 900; font-size: 11.5px;">
+                      ${totalLivestockCount > 0 ? totalLivestockCount : '-'}
+                    </td>
+                    <td style="border: 1.5px solid #000000; padding: 4px 6px; text-align: right; font-weight: 900; font-size: 11.5px;">
+                      ${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}
                     </td>
                     <td style="border: 1.5px solid #000000;"></td>
                   </tr>
@@ -2842,9 +2845,470 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
-    const isJabitha = formTitle.includes('ஜாபிதா') || formTitle.includes('Jabitha');
-    const isAgreement = formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page');
-    const isKcc2 = (formTitle.includes('KCC-2') || formTitle.includes('KCC 2')) && !isAgreement;
+    // SPECIAL HANDLING FOR 5. ஜாபிதா (Jabitha)
+    if (formTitle.includes('ஜாபிதா') || formTitle.includes('Jabitha')) {
+      const activeDisbNumber = filterDisbNo || currentDisbNo || '1';
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '20-05-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/AH1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
+
+      const totalLivestockCount = printItems.reduce((acc, item) => {
+        const countVal = parseFloat(String(item.livestockCount ?? item.acres ?? '0').replace(/[^0-9.]/g, '')) || 0;
+        return acc + countVal;
+      }, 0);
+      const totalLoan = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
+
+      const itemsRowsHtml = printItems.map((item, idx) => {
+        const loanAmt = getItemLoanAmount(item);
+        const { initial, name: cleanName } = parseInitialAndName(item);
+        const livestockTypeVal = item.livestockType || item.crop || '-';
+        const rawCount = item.livestockCount !== undefined && item.livestockCount !== null && item.livestockCount !== '' 
+          ? String(item.livestockCount) 
+          : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
+
+        return `
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 36px;">
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold;">${idx + 1}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: 600;">${livestockTypeVal}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 12.5px;">${rawCount}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px; min-width: 140px;"></td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ta">
+          <head>
+            <meta charset="utf-8" />
+            <title>5. ஜாபிதா - கால்நடை பராமரிப்பு கடன் அறிக்கை</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @media print {
+                @page {
+                  size: legal landscape;
+                  margin: 6mm;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                table {
+                  page-break-inside: auto;
+                }
+                tr {
+                  page-break-inside: avoid;
+                  page-break-after: auto;
+                }
+                thead {
+                  display: table-header-group;
+                }
+                tfoot {
+                  display: table-footer-group;
+                }
+              }
+              body {
+                font-family: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: black;
+                background: #f8fafc;
+                padding: 12px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              th, td {
+                border: 1px solid black;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print mb-4 flex items-center justify-between bg-stone-100 p-3.5 rounded-xl border border-stone-300">
+              <span class="text-xs font-bold text-stone-800">5. ஜாபிதா படிவம் (கால்நடை பராமரிப்பு கடன் ஜாபிதா விபரம்)</span>
+              <button onclick="window.print()" class="bg-[#007A4D] text-white font-black text-xs px-5 py-2 rounded-lg cursor-pointer">
+                அச்சிடுக (Print Jabitha)
+              </button>
+            </div>
+
+            <!-- Exact Document Header -->
+            <div style="text-align: center; margin-bottom: 12px; color: black;">
+              <h1 style="font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase;">
+                T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+              </h1>
+              <h2 style="font-size: 13px; font-weight: bold; margin: 3px 0;">
+                உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+              </h2>
+              <div style="margin-top: 6px;">
+                <span style="border: 2px solid black; padding: 3px 18px; font-size: 14px; font-weight: 900; display: inline-block;">
+                  AH 1 ல் கால்நடை பராமரிப்பு கடன் ஜாபிதா விபரம்
+                </span>
+              </div>
+              <div style="font-size: 12px; font-weight: bold; margin-top: 6px;">
+                மத்திய வங்கி RCL No: ${effectiveRclNo} &nbsp;&nbsp;&nbsp;&nbsp; நாள்: ${effectiveRclDate}
+              </div>
+            </div>
+
+            <!-- Metadata Table -->
+            <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
+              <tr>
+                <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
+                <td style="width: 8%; font-family: monospace;">${effectiveResNo}</td>
+                <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
+                <td style="width: 18%; font-family: monospace;">${effectiveResDate}</td>
+                <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
+                <td style="width: 8%; font-family: monospace;">${activeDisbNumber}</td>
+                <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
+                <td style="width: 18%; font-family: monospace;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <!-- Loan Total Banner -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+              <table style="border-collapse: collapse; border: 1px solid black; font-weight: bold; font-size: 11px; margin-left: auto;">
+                <tr>
+                  <td style="text-align: right; background: #f5f5f5; padding: 5px 12px; border: 1px solid black;">
+                    AH 1ல் தற்போது பட்டுவாடா கோரும் தொகை
+                  </td>
+                  <td style="text-align: right; font-size: 13px; font-weight: 900; padding: 5px 12px; border: 1px solid black; white-space: nowrap;">
+                    ₹ ${totalLoan.toLocaleString('en-IN')}.00
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Main Table without Previous Loan Columns, with Signature Column -->
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f5f5f5; text-align: center; font-weight: bold; font-size: 11px; height: 36px;">
+                  <th style="width: 4%;">வ.எண்</th>
+                  <th style="width: 6%;">அ.எண்</th>
+                  <th style="width: 6%;">SB</th>
+                  <th style="width: 7%;">ERP</th>
+                  <th style="width: 5%;">Initial</th>
+                  <th style="width: 22%;">பெயர்</th>
+                  <th style="width: 14%;">கால்நடைகளின் வகை</th>
+                  <th style="width: 8%;">கால்நடைகளின் எண்ணிக்கை</th>
+                  <th style="width: 12%;">கடன் தொகை</th>
+                  <th style="width: 16%;">கையொப்பம்</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRowsHtml}
+                <!-- Totals Row -->
+                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 11px; height: 34px;">
+                  <td colspan="6" style="text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
+                  <td style="border: 1px solid black;"></td>
+                  <td style="border: 1px solid black; text-align: center; padding: 6px; font-size: 13px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Signatures: செயலாளர், தலைவர் / செயலாட்சியர், சரக மேற்பார்வையாளர் -->
+            <div style="margin-top: 35px; color: black; page-break-inside: avoid;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; text-align: center; font-size: 12px; font-weight: bold; margin-top: 24px; padding: 0 40px;">
+                <div>
+                  <div style="height: 38px;"></div>
+                  <div style="border-top: 2px solid black; padding-top: 4px; min-width: 140px;">செயலாளர்</div>
+                </div>
+                <div>
+                  <div style="height: 38px;"></div>
+                  <div style="border-top: 2px solid black; padding-top: 4px; min-width: 180px;">தலைவர் / செயலாட்சியர்</div>
+                </div>
+                <div>
+                  <div style="height: 38px;"></div>
+                  <div style="border-top: 2px solid black; padding-top: 4px; min-width: 170px;">சரக மேற்பார்வையாளர்</div>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(() => { window.print(); }, 400);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+
+    // SPECIAL HANDLING FOR 6. ஒப்பந்தம் (Signature Page / Agreement)
+    if (formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page')) {
+      const activeDisbNumber = filterDisbNo || currentDisbNo || '1';
+      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
+      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '05-09-2026';
+      const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
+      const effectiveRclNo = rclNumber || '107/25-26/P1';
+      const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
+
+      let totalCurrentShare = 0;
+      let totalSocietyShare = 0;
+      let totalMdccShare = 0;
+      let totalBookFee = 0;
+      let totalInsFee = 0;
+      let totalLoanSum = 0;
+      let totalMirrorAmtSum = 0;
+
+      const seenAh6BookMembers = new Set<string>();
+
+      const itemsRowsHtml = printItems.map((item, idx) => {
+        const loanAmt = getItemLoanAmount(item);
+        const { initial, name: cleanName } = parseInitialAndName(item);
+
+        // Share capital (தற்போது பிடிக்கும் பங்கு தொகை)
+        let curShare = 0;
+        if (item.shareCapital !== undefined && item.shareCapital !== null && item.shareCapital !== '') {
+          curShare = parseFloat(String(item.shareCapital).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).shareAmount !== undefined && (item as any).shareAmount !== null && (item as any).shareAmount !== '') {
+          curShare = parseFloat(String((item as any).shareAmount).replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        // சங்கம் பங்கு தொகை (40%) and MDCC Bank பங்கு தொகை (60%)
+        let societyShare = 0;
+        let mdccShare = 0;
+        if ((item as any).societyShare !== undefined && (item as any).societyShare !== null && (item as any).societyShare !== '') {
+          societyShare = parseFloat(String((item as any).societyShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          societyShare = Math.round(curShare * 0.40);
+        }
+
+        if ((item as any).bankShare !== undefined && (item as any).bankShare !== null && (item as any).bankShare !== '') {
+          mdccShare = parseFloat(String((item as any).bankShare).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).mdccShare !== undefined && (item as any).mdccShare !== null && (item as any).mdccShare !== '') {
+          mdccShare = parseFloat(String((item as any).mdccShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          mdccShare = curShare - societyShare;
+        }
+
+        // புத்தக பாரம் (Passbook fee, default 300 per member if not specified)
+        const aClassKey = String(item.aClass || item.aNo || item.memberNo || item.name || '').trim().toLowerCase();
+        let bookFee = 0;
+        if (item.passbookFee !== undefined && item.passbookFee !== null && String(item.passbookFee).trim() !== '') {
+          bookFee = parseFloat(String(item.passbookFee).replace(/[^0-9.]/g, '')) || 0;
+        } else if (item.bookCharge !== undefined && item.bookCharge !== null && String(item.bookCharge).trim() !== '') {
+          bookFee = parseFloat(String(item.bookCharge).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          if (aClassKey && !seenAh6BookMembers.has(aClassKey)) {
+            bookFee = 300;
+          } else {
+            bookFee = 0;
+          }
+        }
+        if (aClassKey) seenAh6BookMembers.add(aClassKey);
+
+        // காப்பீடு
+        const insFee = parseFloat(String(item.insurance !== undefined ? item.insurance : (item.insuranceFee || 0)).replace(/[^0-9.]/g, '')) || 0;
+
+        // MIRROR ACCOUNT Amount = மொத்த கடன் தொகை - (தற்போது பிடிக்கும் பங்கு தொகை + புத்தக பாரம் + காப்பீடு)
+        const mirrorAmt = (item as any).mirrorAccountAmount !== undefined && (item as any).mirrorAccountAmount !== null && String((item as any).mirrorAccountAmount).trim() !== ''
+          ? (parseFloat(String((item as any).mirrorAccountAmount).replace(/[^0-9.]/g, '')) || 0)
+          : Math.max(0, loanAmt - (curShare + bookFee + insFee));
+
+        totalCurrentShare += curShare;
+        totalSocietyShare += societyShare;
+        totalMdccShare += mdccShare;
+        totalBookFee += bookFee;
+        totalInsFee += insFee;
+        totalLoanSum += loanAmt;
+        totalMirrorAmtSum += mirrorAmt;
+
+        return `
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 38px;">
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold;">${idx + 1}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px; min-width: 140px;"></td>
+          </tr>
+        `;
+      }).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ta">
+          <head>
+            <meta charset="utf-8" />
+            <title>6. ஒப்பந்தம் - KCC AH ல் கால்நடை பராமரிப்பு கடன் ஒப்பந்தம்</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @media print {
+                @page {
+                  size: legal landscape;
+                  margin: 6mm;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                table {
+                  page-break-inside: auto;
+                }
+                tr {
+                  page-break-inside: avoid;
+                  page-break-after: auto;
+                }
+                thead {
+                  display: table-header-group;
+                }
+                tfoot {
+                  display: table-footer-group;
+                }
+              }
+              body {
+                font-family: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: black;
+                background: #f8fafc;
+                padding: 12px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              th, td {
+                border: 1px solid black;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="no-print mb-4 flex items-center justify-between bg-stone-100 p-3.5 rounded-xl border border-stone-300">
+              <span class="text-xs font-bold text-stone-800">6. ஒப்பந்தம் (KCC AH ல் கால்நடை பராமரிப்பு கடன் ஒப்பந்தம் / கையொப்பப் பட்டியல்)</span>
+              <button onclick="window.print()" class="bg-[#007A4D] text-white font-black text-xs px-5 py-2 rounded-lg cursor-pointer">
+                அச்சிடுக (Print Agreement)
+              </button>
+            </div>
+
+            <!-- Exact Document Header matching AH-2 -->
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black; margin-bottom: 0;">
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 4px 6px; border: 1.5px solid black; font-weight: 900; font-size: 14.5px;">
+                  T.U.3 தேவாரம் தொடக்க வேளாண்மை கூட்டுறவு கடன் சங்கம் லிட், தேவாரம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: bold; font-size: 12.5px;">
+                  உத்தமபாளையம் தாலுகா, தேனி மாவட்டம் - 625530
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: 900; font-size: 13.5px;">
+                  KCC AH ல் கால்நடை பராமரிப்பு கடன் பட்டுவாடா ஒப்பந்தம்
+                </td>
+              </tr>
+              <tr>
+                <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: bold; font-size: 12.5px;">
+                  மத்திய வங்கி RCL No: ${effectiveRclNo} நாள்:${effectiveRclDate}
+                </td>
+              </tr>
+              <tr style="font-weight: bold; font-size: 11px; text-align: center;">
+                <td style="width: 12%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான எண்</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResNo}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான தேதி</td>
+                <td style="width: 15%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResDate}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா எண்</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${activeDisbNumber}</td>
+                <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா தேதி</td>
+                <td colspan="7" style="border: 1px solid black; font-family: monospace; padding: 4px;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <!-- Main Table with Exact Headers matching reference AH-2 with கையொப்பம் -->
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: -1px;">
+              <thead>
+                <tr style="background: #ffffff; text-align: center; font-weight: bold; font-size: 10.5px; height: 42px;">
+                  <th style="width: 3.5%; border: 1px solid black; padding: 3px 2px;">வ.எண்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">அ.எண்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">SB</th>
+                  <th style="width: 5.5%; border: 1px solid black; padding: 3px 2px;">ERP</th>
+                  <th style="width: 3.5%; border: 1px solid black; padding: 3px 2px;">Ins</th>
+                  <th style="width: 15%; border: 1px solid black; padding: 3px 4px; font-size: 11px;">பெயர்</th>
+                  <th style="width: 7%; border: 1px solid black; padding: 3px 2px;">தற்போது பிடிக்கும் பங்கு தொகை</th>
+                  <th style="width: 6.8%; border: 1px solid black; padding: 3px 2px;">சங்க பங்கு தொகை (40%)</th>
+                  <th style="width: 6.8%; border: 1px solid black; padding: 3px 2px;">MDCC Bank பங்கு தொகை (60%)</th>
+                  <th style="width: 5.4%; border: 1px solid black; padding: 3px 2px; text-align: center;">புத்தக பாரம்</th>
+                  <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">காப்பீடு</th>
+                  <th style="width: 9%; border: 1px solid black; padding: 3px 4px;">மொத்த கடன் தொகை</th>
+                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT Amount</th>
+                  <th style="width: 14.5%; border: 1px solid black; padding: 3px 4px;">கையொப்பம்</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRowsHtml}
+                <!-- Totals Row with 'மொத்தம்' matching request -->
+                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 11px; height: 34px;">
+                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Signatures: செயலாளர், தலைவர் / செயலாட்சியர் -->
+            <div style="margin-top: 25px; color: black; page-break-inside: avoid;">
+              <div style="display: flex; justify-content: center; align-items: flex-end; gap: 90px; text-align: center; font-size: 13px; font-weight: bold;">
+                <div>
+                  <div style="height: 32px;"></div>
+                  <div style="border-top: 1.5px solid black; padding-top: 5px; min-width: 160px;">செயலாளர்</div>
+                </div>
+                <div>
+                  <div style="height: 32px;"></div>
+                  <div style="border-top: 1.5px solid black; padding-top: 5px; min-width: 200px;">தலைவர் / செயலாட்சியர்</div>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(() => { window.print(); }, 400);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+
+    const isJabitha = false;
+    const isAgreement = false;
+    const isKcc2 = (formTitle.includes('KCC-2') || formTitle.includes('KCC 2'));
 
     const totalPrevLoan = printItems.reduce((acc, item) => {
       const prevAmt = parseFloat(String(item.prevLoanAmount || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -3362,6 +3826,25 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
+    const parseInitialAndName = (item: any) => {
+      let ins = (item.ins || (item as any).initial || '').toString().trim();
+      let nameStr = (item.name || (item as any).memberName || '').toString().trim();
+
+      if (ins && ins !== '-') {
+        const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`^${escaped}[.\\s]+`, 'i');
+        nameStr = nameStr.replace(regex, '').trim();
+        return { initial: ins, name: nameStr };
+      }
+
+      const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
+      if (match) {
+        return { initial: match[1], name: match[2].trim() };
+      }
+
+      return { initial: (ins && ins !== '-') ? ins : '-', name: nameStr };
+    };
+
     if (formTitle.includes('Cropwise') || formTitle.includes('பயிர் வாரியாக')) {
       const cropMap = new Map<string, { count: number; acres: number; seed: number; chem: number; comp: number; pest: number; cash: number; totalLoan: number }>();
       exportItems.forEach(item => {
@@ -3479,8 +3962,92 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
-    if (formTitle.includes('KCC-2') || formTitle.includes('KCC 2') || formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page')) {
-      const isAgreement = formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page');
+    if (formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page')) {
+      const headers = [
+        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்',
+        'தற்போது பிடிக்கும் பங்கு தொகை', 'சங்க பங்கு தொகை (40%)', 'MDCC Bank பங்கு தொகை (60%)',
+        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'MIRROR ACCOUNT Amount', 'கையொப்பம்'
+      ];
+      const seenAh6ExportMembers = new Set<string>();
+      const rows = exportItems.map((item, index) => {
+        const loanAmt = getItemLoanAmount(item);
+        const { initial, name: cleanName } = parseInitialAndName(item);
+
+        let curShare = 0;
+        if (item.shareCapital !== undefined && item.shareCapital !== null && item.shareCapital !== '') {
+          curShare = parseFloat(String(item.shareCapital).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).shareAmount !== undefined && (item as any).shareAmount !== null && (item as any).shareAmount !== '') {
+          curShare = parseFloat(String((item as any).shareAmount).replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        let societyShare = 0;
+        let mdccShare = 0;
+        if ((item as any).societyShare !== undefined && (item as any).societyShare !== null && (item as any).societyShare !== '') {
+          societyShare = parseFloat(String((item as any).societyShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          societyShare = Math.round(curShare * 0.40);
+        }
+
+        if ((item as any).bankShare !== undefined && (item as any).bankShare !== null && (item as any).bankShare !== '') {
+          mdccShare = parseFloat(String((item as any).bankShare).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).mdccShare !== undefined && (item as any).mdccShare !== null && (item as any).mdccShare !== '') {
+          mdccShare = parseFloat(String((item as any).mdccShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          mdccShare = curShare - societyShare;
+        }
+
+        const aClassKey = String(item.aClass || item.aNo || item.memberNo || item.name || '').trim().toLowerCase();
+        let bookFee = 0;
+        if (item.passbookFee !== undefined && item.passbookFee !== null && String(item.passbookFee).trim() !== '') {
+          bookFee = parseFloat(String(item.passbookFee).replace(/[^0-9.]/g, '')) || 0;
+        } else if (item.bookCharge !== undefined && item.bookCharge !== null && String(item.bookCharge).trim() !== '') {
+          bookFee = parseFloat(String(item.bookCharge).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          if (aClassKey && !seenAh6ExportMembers.has(aClassKey)) {
+            bookFee = 300;
+          } else {
+            bookFee = 0;
+          }
+        }
+        if (aClassKey) seenAh6ExportMembers.add(aClassKey);
+
+        const insFee = parseFloat(String(item.insurance !== undefined ? item.insurance : (item.insuranceFee || 0)).replace(/[^0-9.]/g, '')) || 0;
+
+        const mirrorAmt = (item as any).mirrorAccountAmount !== undefined && (item as any).mirrorAccountAmount !== null && String((item as any).mirrorAccountAmount).trim() !== ''
+          ? (parseFloat(String((item as any).mirrorAccountAmount).replace(/[^0-9.]/g, '')) || 0)
+          : Math.max(0, loanAmt - (curShare + bookFee + insFee));
+
+        return [
+          index + 1,
+          `"${item.aClass || item.aNo || item.memberNo || ''}"`,
+          `"${item.sb || '-'}"`,
+          `"${item.erp || '-'}"`,
+          `"${initial}"`,
+          `"${cleanName}"`,
+          curShare,
+          societyShare,
+          mdccShare,
+          bookFee,
+          insFee,
+          loanAmt,
+          mirrorAmt,
+          '""'
+        ];
+      });
+
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `6_AH_Agreement_Report.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    if (formTitle.includes('KCC-2') || formTitle.includes('KCC 2')) {
+      const isAgreement = false;
       const headers = [
         'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'பெயர்', 'சர்வே எண்', 'பரப்பு', 'பயிர்',
         'விதை பகுதி', 'ரசாயன உரம்', 'தொழு உரம்', 'பூச்சி மருந்து', 'ரொக்கம்', 'மொத்தம்',
@@ -3562,31 +4129,25 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
     if (formTitle.includes('ஜாபிதா') || formTitle.includes('Jabitha')) {
       const headers = [
-        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'பெயர்', 'சர்வே எண்', 'பரப்பு ஏ.செ', 'பயிர்',
-        'விதை பகுதி', 'இரசாயன உரம் 50%', 'தொழு உரம் 50%', 'பூச்சி மருந்து', 'ரொக்கம்', 'மொத்தம்', 'கையொப்பம்'
+        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்', 'கால்நடைகளின் வகை', 'கால்நடைகளின் எண்ணிக்கை', 'கடன் தொகை', 'கையொப்பம்'
       ];
       const rows = exportItems.map((item, index) => {
         const loanAmt = getItemLoanAmount(item);
-        const seedAmt = parseFloat(String((item as any).seed || (item as any).seedAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-        const chemAmt = parseFloat(String(item.chemicalFertilizer || item.fertilizer || '0').replace(/[^0-9.]/g, '')) || 0;
-        const compAmt = parseFloat(String(item.fertilizerKind || item.compost || '0').replace(/[^0-9.]/g, '')) || 0;
-        const pestAmt = parseFloat(String(item.pesticide || '0').replace(/[^0-9.]/g, '')) || 0;
-        const cashAmt = parseFloat(String(item.organicFertilizer || item.cash || '0').replace(/[^0-9.]/g, '')) || 0;
+        const { initial, name: cleanName } = parseInitialAndName(item);
+        const livestockTypeVal = item.livestockType || item.crop || '-';
+        const rawCount = item.livestockCount !== undefined && item.livestockCount !== null && item.livestockCount !== '' 
+          ? String(item.livestockCount) 
+          : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
 
         return [
           index + 1,
-          `"${item.aClass || item.memberNo || ''}"`,
+          `"${item.aClass || item.aNo || item.memberNo || ''}"`,
           `"${item.sb || '-'}"`,
           `"${item.erp || '-'}"`,
-          `"${item.name || ''}"`,
-          `"${item.surveyNo || '-'}"`,
-          formatAcres(item.acres),
-          `"${item.crop || '-'}"`,
-          seedAmt,
-          chemAmt,
-          compAmt,
-          pestAmt,
-          cashAmt,
+          `"${initial}"`,
+          `"${cleanName}"`,
+          `"${livestockTypeVal}"`,
+          `"${rawCount}"`,
           loanAmt,
           '""'
         ];
@@ -3596,7 +4157,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement('a');
       link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `5_Jabitha_Report.csv`);
+      link.setAttribute('download', `5_AH_Jabitha_Report.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
