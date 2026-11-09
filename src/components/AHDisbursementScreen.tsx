@@ -4,6 +4,7 @@ import {
   KCCDisbursementRecord, 
   Part1RCLDetails 
 } from '../types';
+import { INITIAL_LOAN_MEMBERS } from '../data/initialData';
 import { formatMobile, formatRationCard, formatMDCC, formatAadhar, formatIndianCurrency, formatIndianInputNumber, formatDateDDMMYYYY, extractSpreadsheetId, formatAcres } from '../utils/formatters';
 import { 
   Search, 
@@ -589,6 +590,103 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
     fetchLastDisbNo();
   }, []);
 
+  const getMemberForItem = (item: any): LoanMember | undefined => {
+    if (!item) return undefined;
+    const aKey = (item.aClass || (item as any).aNo || item.memberNo || '').toString().trim().toLowerCase();
+    const sbKey = (item.sb || '').toString().trim().toLowerCase();
+    const erpKey = (item.erp || '').toString().trim().toLowerCase();
+    const nameKey = (item.name || (item as any).memberName || '').toString().trim().toLowerCase();
+
+    const pool = (members && members.length > 0) ? members : INITIAL_LOAN_MEMBERS;
+
+    // 1. By A-Class / Member Number (exact match)
+    if (aKey && aKey !== '-' && aKey !== '0') {
+      const match = pool.find(x => (x.aClass || x.memberNo || '').toString().trim().toLowerCase() === aKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.aClass || x.memberNo || '').toString().trim().toLowerCase() === aKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    // 2. By SB Account
+    if (sbKey && sbKey !== '-' && sbKey !== '0') {
+      const match = pool.find(x => (x.sb || '').toString().trim().toLowerCase() === sbKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.sb || '').toString().trim().toLowerCase() === sbKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    // 3. By ERP Code
+    if (erpKey && erpKey !== '-' && erpKey !== '0') {
+      const match = pool.find(x => (x.erp || '').toString().trim().toLowerCase() === erpKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.erp || '').toString().trim().toLowerCase() === erpKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    // 4. By exact Name
+    if (nameKey && nameKey !== '-' && nameKey.length > 2) {
+      const match = pool.find(x => (x.name || '').toString().trim().toLowerCase() === nameKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.name || '').toString().trim().toLowerCase() === nameKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    // 5. By partial name
+    if (nameKey && nameKey !== '-' && nameKey.length > 2) {
+      const match = pool.find(x => {
+        const nm = (x.name || '').toString().trim().toLowerCase();
+        return nm && (nameKey.includes(nm) || nm.includes(nameKey));
+      });
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => {
+          const nm = (x.name || '').toString().trim().toLowerCase();
+          return nm && (nameKey.includes(nm) || nm.includes(nameKey));
+        });
+        if (initMatch) return initMatch;
+      }
+    }
+
+    return undefined;
+  };
+
+  const parseInitialAndName = (item: any) => {
+    const mem = getMemberForItem(item);
+    let ins = (item.ins || (item as any).initial || mem?.ins || '').toString().trim();
+    let nameStr = (item.name || (item as any).memberName || mem?.name || '').toString().trim();
+
+    if (ins && ins !== '-' && ins !== 'undefined' && ins !== 'null') {
+      const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      nameStr = nameStr.replace(new RegExp(`^${escaped}[.\\s]+`, 'i'), '').trim();
+      nameStr = nameStr.replace(new RegExp(`[.\\s]+${escaped}$`, 'i'), '').trim();
+      return { initial: ins, name: nameStr };
+    }
+
+    const leadMatch = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
+    if (leadMatch) {
+      return { initial: leadMatch[1].trim(), name: leadMatch[2].trim() };
+    }
+
+    const trailMatch = nameStr.match(/^(.+?)[.\s]+([A-Za-z\u0B80-\u0BFF]{1,3})$/);
+    if (trailMatch && trailMatch[1].length > 2) {
+      return { initial: trailMatch[2].trim(), name: trailMatch[1].trim() };
+    }
+
+    if (mem?.ins && mem.ins.trim() && mem.ins.trim() !== '-') {
+      return { initial: mem.ins.trim(), name: nameStr };
+    }
+
+    return { initial: (ins && ins !== '-') ? ins : '', name: nameStr };
+  };
+
   const PRINT_FORMS = [
     { id: '1', title: '1. AH-1 படிவம்' },
     { id: '2', title: '2. AH-2 படிவம்' },
@@ -618,25 +716,6 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       window.print();
       return;
     }
-
-    const parseInitialAndName = (item: any) => {
-      let ins = (item.ins || (item as any).initial || '').toString().trim();
-      let nameStr = (item.name || (item as any).memberName || '').toString().trim();
-
-      if (ins && ins !== '-') {
-        const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`^${escaped}[.\\s]+`, 'i');
-        nameStr = nameStr.replace(regex, '').trim();
-        return { initial: ins, name: nameStr };
-      }
-
-      const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
-      if (match) {
-        return { initial: match[1], name: match[2].trim() };
-      }
-
-      return { initial: (ins && ins !== '-') ? ins : '-', name: nameStr };
-    };
 
     // SPECIAL HANDLING FOR 7. KCC BANK SHEET (வங்கி அறிக்கை)
     if (formTitle.includes('Bank Sheet') || formTitle.includes('வங்கி அறிக்கை') || formTitle.includes('KCC Bank')) {
@@ -1699,19 +1778,46 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
         const aKey = (i.aClass || i.aNo || i.memberNo || '').toString().trim();
         const dedupeKey = aKey && aKey !== '-' ? aKey : ((i.name || '').toString().trim() || String(i.id || Math.random()));
+        const mem = getMemberForItem(i);
 
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
           existing.totalIns += insVal;
-          if (!existing.item.careOf && i.careOf) existing.item.careOf = i.careOf;
-          if (!existing.item.rationCard && i.rationCard) existing.item.rationCard = i.rationCard;
-          if (!existing.item.namini && i.namini) existing.item.namini = i.namini;
-          if (!existing.item.relation && i.relation) existing.item.relation = i.relation;
-          if (!existing.item.sb && i.sb) existing.item.sb = i.sb;
-          if (!existing.item.erp && i.erp) existing.item.erp = i.erp;
+          if (!existing.item.careOf && (i.careOf || mem?.careOf || mem?.fatherOrHusbandName)) {
+            existing.item.careOf = i.careOf || mem?.careOf || mem?.fatherOrHusbandName;
+          }
+          if (!existing.item.rationCard && (i.rationCard || mem?.rationCard)) {
+            existing.item.rationCard = i.rationCard || mem?.rationCard;
+          }
+          if (!existing.item.namini && (i.namini || mem?.namini)) {
+            existing.item.namini = i.namini || mem?.namini;
+          }
+          if (!existing.item.relation && (i.relation || mem?.relation)) {
+            existing.item.relation = i.relation || mem?.relation;
+          }
+          if (!existing.item.ins && (i.ins || mem?.ins)) {
+            existing.item.ins = i.ins || mem?.ins;
+          }
+          if (!existing.item.sb && (i.sb || mem?.sb)) {
+            existing.item.sb = i.sb || mem?.sb;
+          }
+          if (!existing.item.erp && (i.erp || mem?.erp)) {
+            existing.item.erp = i.erp || mem?.erp;
+          }
         } else {
           memberMap.set(dedupeKey, {
-            item: { ...i },
+            item: {
+              ...i,
+              careOf: i.careOf || i.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || '',
+              fatherOrHusbandName: i.fatherOrHusbandName || i.careOf || mem?.fatherOrHusbandName || mem?.careOf || '',
+              village: i.village || mem?.village || 'தேவாரம்',
+              rationCard: i.rationCard || (i as any).ration || mem?.rationCard || '',
+              namini: i.namini || (i as any).nominee || mem?.namini || '',
+              relation: i.relation || (i as any).relationship || mem?.relation || '',
+              ins: i.ins || (i as any).initial || mem?.ins || '',
+              sb: i.sb || mem?.sb || '',
+              erp: i.erp || mem?.erp || ''
+            },
             totalIns: insVal
           });
         }
@@ -1877,13 +1983,14 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </thead>
               <tbody style="font-weight: 600; font-size: 11px;">
                 ${insPrintItems.map(({ item: r, totalIns: insAmt }, idx) => {
-                  const memberAClass = r.aClass || r.aNo || r.memberNo || '';
-                  const fatherOrHusband = r.careOf || r.fatherOrHusbandName || '';
-                  const memberVillage = r.village || 'தேவாரம்';
-                  const rationCardNo = r.rationCard || (r as any).ration || '';
+                  const mem = getMemberForItem(r);
+                  const memberAClass = r.aClass || r.aNo || r.memberNo || mem?.aClass || mem?.memberNo || '';
+                  const fatherOrHusband = r.careOf || r.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || '';
+                  const memberVillage = r.village || mem?.village || 'தேவாரம்';
+                  const rationCardNo = r.rationCard || (r as any).ration || mem?.rationCard || '';
                   const disabilityInfo = r.disability || '0';
-                  const nomineeName = r.namini || (r as any).nominee || '';
-                  const relationship = r.relation || (r as any).relationship || '';
+                  const nomineeName = r.namini || (r as any).nominee || mem?.namini || '';
+                  const relationship = r.relation || (r as any).relationship || mem?.relation || '';
                   const { initial: initials, name: cleanMemberName } = parseInitialAndName(r);
 
                   return `
@@ -2159,24 +2266,6 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const rawSanctioned = (sanctionedAmount || printItems[0]?.creditLimit || '10000000').toString().replace(/[^0-9]/g, '') || '10000000';
       const sanctionLimitFormatted = parseFloat(rawSanctioned).toLocaleString('en-IN');
 
-      const parseInitialAndName = (item: any) => {
-        let ins = (item.ins || (item as any).initial || '').toString().trim();
-        let nameStr = (item.name || '').toString().trim();
-
-        if (ins && ins !== '-') {
-          const regex = new RegExp(`^${ins}[.\\s]+`, 'i');
-          nameStr = nameStr.replace(regex, '').trim();
-          return { initial: ins, name: nameStr };
-        }
-
-        const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
-        if (match) {
-          return { initial: match[1], name: match[2].trim() };
-        }
-
-        return { initial: '', name: nameStr };
-      };
-
       const tableRowsHtml = printItems.map((item, idx) => {
         const loanAmt = getItemLoanAmount(item);
         const { initial, name } = parseInitialAndName(item);
@@ -2445,8 +2534,21 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           ? (parseFloat(String((item as any).mirrorAccountAmount).replace(/[^0-9.]/g, '')) || 0)
           : Math.max(0, loanAmt - (curShare + bookFee + insFee));
 
+        const mem = getMemberForItem(item);
         // MIRROR ACCOUNT Number
-        const mirrorNo = (item as any).mirrorAccountNumber || (item as any).mirrorAccountNo || (item as any).mirrorNo || (item as any).mirrorAcc || item.mdcc || item.mdccAccount || item.mdccAccountNo || item.kccAccountNo || '';
+        const mirrorNo = (item as any).mirrorAccountNumber || 
+                         (item as any).mirrorAccountNo || 
+                         (item as any).mirrorNo || 
+                         (item as any).mirrorAcc || 
+                         item.mdcc || 
+                         item.mdccAccount || 
+                         item.mdccAccountNo || 
+                         item.kccAccountNo || 
+                         mem?.mdcc || 
+                         mem?.kccAccountNo || 
+                         (mem as any)?.mirrorAccount || 
+                         (mem as any)?.mirrorAccountNumber || 
+                         '';
 
         totalCurrentShare += curShare;
         totalSocietyShare += societyShare;
@@ -3826,24 +3928,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
-    const parseInitialAndName = (item: any) => {
-      let ins = (item.ins || (item as any).initial || '').toString().trim();
-      let nameStr = (item.name || (item as any).memberName || '').toString().trim();
 
-      if (ins && ins !== '-') {
-        const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`^${escaped}[.\\s]+`, 'i');
-        nameStr = nameStr.replace(regex, '').trim();
-        return { initial: ins, name: nameStr };
-      }
-
-      const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
-      if (match) {
-        return { initial: match[1], name: match[2].trim() };
-      }
-
-      return { initial: (ins && ins !== '-') ? ins : '-', name: nameStr };
-    };
 
     if (formTitle.includes('Cropwise') || formTitle.includes('பயிர் வாரியாக')) {
       const cropMap = new Map<string, { count: number; acres: number; seed: number; chem: number; comp: number; pest: number; cash: number; totalLoan: number }>();
@@ -3900,19 +3985,46 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
         const aKey = (item.aClass || item.aNo || item.memberNo || '').toString().trim();
         const dedupeKey = aKey && aKey !== '-' ? aKey : ((item.name || '').toString().trim() || String(item.id || Math.random()));
+        const mem = getMemberForItem(item);
 
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
           existing.totalIns += insVal;
-          if (!existing.item.careOf && item.careOf) existing.item.careOf = item.careOf;
-          if (!existing.item.rationCard && item.rationCard) existing.item.rationCard = item.rationCard;
-          if (!existing.item.namini && item.namini) existing.item.namini = item.namini;
-          if (!existing.item.relation && item.relation) existing.item.relation = item.relation;
-          if (!existing.item.sb && item.sb) existing.item.sb = item.sb;
-          if (!existing.item.erp && item.erp) existing.item.erp = item.erp;
+          if (!existing.item.careOf && (item.careOf || mem?.careOf || mem?.fatherOrHusbandName)) {
+            existing.item.careOf = item.careOf || mem?.careOf || mem?.fatherOrHusbandName;
+          }
+          if (!existing.item.rationCard && (item.rationCard || mem?.rationCard)) {
+            existing.item.rationCard = item.rationCard || mem?.rationCard;
+          }
+          if (!existing.item.namini && (item.namini || mem?.namini)) {
+            existing.item.namini = item.namini || mem?.namini;
+          }
+          if (!existing.item.relation && (item.relation || mem?.relation)) {
+            existing.item.relation = item.relation || mem?.relation;
+          }
+          if (!existing.item.ins && (item.ins || mem?.ins)) {
+            existing.item.ins = item.ins || mem?.ins;
+          }
+          if (!existing.item.sb && (item.sb || mem?.sb)) {
+            existing.item.sb = item.sb || mem?.sb;
+          }
+          if (!existing.item.erp && (item.erp || mem?.erp)) {
+            existing.item.erp = item.erp || mem?.erp;
+          }
         } else {
           memberMap.set(dedupeKey, {
-            item: { ...item },
+            item: {
+              ...item,
+              careOf: item.careOf || item.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || '',
+              fatherOrHusbandName: item.fatherOrHusbandName || item.careOf || mem?.fatherOrHusbandName || mem?.careOf || '',
+              village: item.village || mem?.village || 'தேவாரம்',
+              rationCard: item.rationCard || (item as any).ration || mem?.rationCard || '',
+              namini: item.namini || (item as any).nominee || mem?.namini || '',
+              relation: item.relation || (item as any).relationship || mem?.relation || '',
+              ins: item.ins || (item as any).initial || mem?.ins || '',
+              sb: item.sb || mem?.sb || '',
+              erp: item.erp || mem?.erp || ''
+            },
             totalIns: insVal
           });
         }
@@ -3933,19 +4045,21 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       let tot = 0;
       const rows = targetItems.map(({ item, totalIns }, index) => {
         tot += totalIns;
+        const mem = getMemberForItem(item);
+        const { initial: initials, name: cleanMemberName } = parseInitialAndName(item);
         return [
           index + 1,
-          `"${item.aClass || item.aNo || item.memberNo || ''}"`,
-          `"${item.sb || ''}"`,
-          `"${item.erp || ''}"`,
-          `"${item.ins || '-'}"`,
-          `"${item.name || ''}"`,
-          `"${item.careOf || item.fatherOrHusbandName || ''}"`,
-          `"${item.village || 'தேவாரம்'}"`,
-          `"${item.rationCard || (item as any).ration || ''}"`,
+          `"${item.aClass || item.aNo || item.memberNo || mem?.aClass || mem?.memberNo || ''}"`,
+          `"${item.sb || mem?.sb || ''}"`,
+          `"${item.erp || mem?.erp || ''}"`,
+          `"${initials}"`,
+          `"${cleanMemberName}"`,
+          `"${item.careOf || item.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || ''}"`,
+          `"${item.village || mem?.village || 'தேவாரம்'}"`,
+          `"${item.rationCard || (item as any).ration || mem?.rationCard || ''}"`,
           `"${item.disability || 'இல்லை'}"`,
-          `"${item.namini || (item as any).nominee || ''}"`,
-          `"${item.relation || (item as any).relationship || ''}"`,
+          `"${item.namini || (item as any).nominee || mem?.namini || ''}"`,
+          `"${item.relation || (item as any).relationship || mem?.relation || ''}"`,
           totalIns
         ];
       });
@@ -4040,6 +4154,105 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const link = document.createElement('a');
       link.setAttribute('href', encodedUri);
       link.setAttribute('download', `6_AH_Agreement_Report.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    if (formTitle.includes('AH-2') || formTitle.includes('AH 2')) {
+      const headers = [
+        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்',
+        'தற்போது பிடிக்கும் பங்கு தொகை', 'சங்க பங்கு தொகை (40%)', 'MDCC Bank பங்கு தொகை (60%)',
+        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'MIRROR ACCOUNT Amount', 'MIRROR ACCOUNT number'
+      ];
+      const seenAh2ExportMembers = new Set<string>();
+      const rows = exportItems.map((item, index) => {
+        const loanAmt = getItemLoanAmount(item);
+        const { initial, name: cleanName } = parseInitialAndName(item);
+        const mem = getMemberForItem(item);
+
+        let curShare = 0;
+        if (item.shareCapital !== undefined && item.shareCapital !== null && item.shareCapital !== '') {
+          curShare = parseFloat(String(item.shareCapital).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).shareAmount !== undefined && (item as any).shareAmount !== null && (item as any).shareAmount !== '') {
+          curShare = parseFloat(String((item as any).shareAmount).replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        let societyShare = 0;
+        let mdccShare = 0;
+        if ((item as any).societyShare !== undefined && (item as any).societyShare !== null && (item as any).societyShare !== '') {
+          societyShare = parseFloat(String((item as any).societyShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          societyShare = Math.round(curShare * 0.40);
+        }
+
+        if ((item as any).bankShare !== undefined && (item as any).bankShare !== null && (item as any).bankShare !== '') {
+          mdccShare = parseFloat(String((item as any).bankShare).replace(/[^0-9.]/g, '')) || 0;
+        } else if ((item as any).mdccShare !== undefined && (item as any).mdccShare !== null && (item as any).mdccShare !== '') {
+          mdccShare = parseFloat(String((item as any).mdccShare).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          mdccShare = curShare - societyShare;
+        }
+
+        const aClassKey = String(item.aClass || item.aNo || item.memberNo || item.name || '').trim().toLowerCase();
+        let bookFee = 0;
+        if (item.passbookFee !== undefined && item.passbookFee !== null && String(item.passbookFee).trim() !== '') {
+          bookFee = parseFloat(String(item.passbookFee).replace(/[^0-9.]/g, '')) || 0;
+        } else if (item.bookCharge !== undefined && item.bookCharge !== null && String(item.bookCharge).trim() !== '') {
+          bookFee = parseFloat(String(item.bookCharge).replace(/[^0-9.]/g, '')) || 0;
+        } else {
+          if (aClassKey && !seenAh2ExportMembers.has(aClassKey)) {
+            bookFee = 300;
+          } else {
+            bookFee = 0;
+          }
+        }
+        if (aClassKey) seenAh2ExportMembers.add(aClassKey);
+
+        const insFee = parseFloat(String(item.insurance !== undefined ? item.insurance : (item.insuranceFee || 0)).replace(/[^0-9.]/g, '')) || 0;
+
+        const mirrorAmt = (item as any).mirrorAccountAmount !== undefined && (item as any).mirrorAccountAmount !== null && String((item as any).mirrorAccountAmount).trim() !== ''
+          ? (parseFloat(String((item as any).mirrorAccountAmount).replace(/[^0-9.]/g, '')) || 0)
+          : Math.max(0, loanAmt - (curShare + bookFee + insFee));
+
+        const mirrorNo = (item as any).mirrorAccountNumber || 
+                         (item as any).mirrorAccountNo || 
+                         (item as any).mirrorNo || 
+                         (item as any).mirrorAcc || 
+                         item.mdcc || 
+                         item.mdccAccount || 
+                         item.mdccAccountNo || 
+                         item.kccAccountNo || 
+                         mem?.mdcc || 
+                         mem?.kccAccountNo || 
+                         (mem as any)?.mirrorAccount || 
+                         (mem as any)?.mirrorAccountNumber || 
+                         '';
+
+        return [
+          index + 1,
+          `"${item.aClass || item.aNo || item.memberNo || ''}"`,
+          `"${item.sb || '-'}"`,
+          `"${item.erp || '-'}"`,
+          `"${initial}"`,
+          `"${cleanName}"`,
+          curShare,
+          societyShare,
+          mdccShare,
+          bookFee,
+          insFee,
+          loanAmt,
+          mirrorAmt,
+          `"${mirrorNo}"`
+        ];
+      });
+
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `2_AH_2_Report.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -4654,16 +4867,47 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
     if (!trimmed) {
       return [];
     }
-    if (trimmed.toLowerCase() === 'all') {
-      return addedItems;
-    }
-    const filterNum = parseInt(trimmed, 10);
-    return addedItems.filter((item) => {
-      const itemDisbStr = String(item.currentDisbNo || (item as any).disbNo || (item as any).disbursementNo || (item as any)['பட்டுவாடா எண்'] || '').trim();
-      const itemDisbNum = parseInt(itemDisbStr, 10);
-      return itemDisbStr === trimmed || (!isNaN(filterNum) && !isNaN(itemDisbNum) && itemDisbNum === filterNum);
+    const filtered = (trimmed.toLowerCase() === 'all')
+      ? addedItems
+      : addedItems.filter((item) => {
+          const itemDisbStr = String(item.currentDisbNo || (item as any).disbNo || (item as any).disbursementNo || (item as any)['பட்டுவாடா எண்'] || '').trim();
+          const itemDisbNum = parseInt(itemDisbStr, 10);
+          const filterNum = parseInt(trimmed, 10);
+          return itemDisbStr === trimmed || (!isNaN(filterNum) && !isNaN(itemDisbNum) && itemDisbNum === filterNum);
+        });
+
+    return filtered.map(item => {
+      const mem = getMemberForItem(item);
+      if (!mem) return item;
+
+      const effectiveIns = (item.ins && item.ins !== '-') 
+        ? item.ins 
+        : ((item as any).initial && (item as any).initial !== '-') 
+          ? (item as any).initial 
+          : (mem.ins || '');
+
+      return {
+        ...item,
+        ins: effectiveIns,
+        initial: effectiveIns,
+        rationCard: item.rationCard || (item as any).ration || mem.rationCard || '',
+        namini: item.namini || (item as any).nominee || mem.namini || '',
+        relation: item.relation || (item as any).relationship || mem.relation || '',
+        mdcc: item.mdcc || (item as any).mdccAccount || mem.mdcc || '',
+        mirrorAccountNumber: (item as any).mirrorAccountNumber || (item as any).mirrorAccountNo || mem.mdcc || mem.kccAccountNo || '',
+        careOf: item.careOf || item.fatherOrHusbandName || mem.careOf || mem.fatherOrHusbandName || '',
+        fatherOrHusbandName: item.fatherOrHusbandName || item.careOf || mem.fatherOrHusbandName || mem.careOf || '',
+        village: item.village || mem.village || 'தேவாரம்',
+        door: item.door || mem.door || '',
+        street: item.street || mem.street || '',
+        adhar: item.adhar || item.aadharNo || mem.adhar || mem.aadharNo || '',
+        aadharNo: item.aadharNo || item.adhar || mem.aadharNo || mem.adhar || '',
+        mobile: item.mobile || mem.mobile || '',
+        sb: item.sb || mem.sb || '',
+        erp: item.erp || mem.erp || ''
+      };
     });
-  }, [addedItems, searchedDisbNo]);
+  }, [addedItems, searchedDisbNo, members]);
 
   const totalAcresSum = displayItems.reduce((acc, item) => {
     const cleanStr = String(item.acres || '0').replace(/[^0-9.]/g, '');
