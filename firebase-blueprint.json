@@ -37,6 +37,9 @@
         "currentDisbNo": { "type": "string" },
         "aClass": { "type": "string" },
         "name": { "type": "string" },
+        "caste": { "type": "string" },
+        "gender": { "type": "string" },
+        "memberStatus": { "type": "string" },
         "totalLoanAmount": { "type": "string" },
         "addedAt": { "type": "string" }
       },

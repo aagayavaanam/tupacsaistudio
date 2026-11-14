@@ -175,6 +175,8 @@ export async function getDb(): Promise<Database> {
       relation TEXT,
       mdcc TEXT,
       caste TEXT,
+      gender TEXT,
+      member_status TEXT,
       total_share TEXT,
       survey_no TEXT,
       acres TEXT,
@@ -320,6 +322,12 @@ export async function getDb(): Promise<Database> {
       }
       if (!existingCols.has('officer_name')) {
         dbInstance.run("ALTER TABLE paduvada ADD COLUMN officer_name TEXT DEFAULT ''");
+      }
+      if (!existingCols.has('gender')) {
+        dbInstance.run("ALTER TABLE paduvada ADD COLUMN gender TEXT DEFAULT ''");
+      }
+      if (!existingCols.has('member_status')) {
+        dbInstance.run("ALTER TABLE paduvada ADD COLUMN member_status TEXT DEFAULT ''");
       }
     } catch (migErr) {
       console.warn('SQLite paduvada column migration notice:', migErr);

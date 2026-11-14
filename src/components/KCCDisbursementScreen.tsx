@@ -887,8 +887,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const formattedCentralBankOutstanding = formatIndianCurrency(matchedColF || 0);
       const formattedDisbTotal = formatIndianCurrency(totalDisbAmount);
       const formattedPrevDisbAmt = prevDisbAmt > 0 ? formatIndianCurrency(prevDisbAmt) : '0';
-      const formattedCollectionsSincePrev = collectionsSincePrev > 0 ? formatIndianCurrency(collectionsSincePrev) : (collectionsSincePrev === 0 ? '0' : '-');
-      const formattedRemittanceSincePrev = remittanceSincePrev > 0 ? formatIndianCurrency(remittanceSincePrev) : (remittanceSincePrev === 0 ? '0' : '-');
+      const formattedCollectionsSincePrev = collectionsSincePrev > 0 ? formatIndianCurrency(collectionsSincePrev) : '0';
+      const formattedRemittanceSincePrev = remittanceSincePrev > 0 ? formatIndianCurrency(remittanceSincePrev) : '0';
       const formattedMemberOutstanding = formatIndianCurrency(matchedColG || 0);
 
       const totalKcc6Val = printItems.reduce((acc, r) => {
@@ -1483,25 +1483,68 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
     // SPECIAL HANDLING FOR 3. CROPWISE (பயிர் வாரியாக)
     if (formTitle.includes('Cropwise') || formTitle.includes('பயிர் வாரியாக')) {
-      const calcNew = printItems.filter(i => (i as any).isNew || (i as any).memberType === 'new').reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcScst = printItems.filter(i => {
-        const caste = ((i as any).caste || '').toUpperCase();
-        return caste.includes('SC') || caste.includes('ST');
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
+      const isNewMemberItem = (i: any): boolean => {
+        const ms = String(i.memberStatus || '').trim();
+        const pl = String(i.prevLoanNo || '').trim();
+        const mt = String(i.mortgageType || '').trim();
+        return Boolean(
+          (i as any).isNew ||
+          (i as any).memberType === 'new' ||
+          ms === 'புதிய உறுப்பினர்' ||
+          ms.includes('புதிய') ||
+          pl === 'புதிய உறுப்பினர்' ||
+          pl.includes('புதிய') ||
+          mt.includes('புதிய')
+        );
+      };
+
+      const isScstItem = (i: any): boolean => {
+        const mem = getMemberForItem(i);
+        const casteRaw = String((i as any).caste && String((i as any).caste).trim() !== '-' ? (i as any).caste : ((i as any).category || mem?.caste || '')).trim().toUpperCase();
+        if (!casteRaw || casteRaw === '-') return false;
+        return (
+          casteRaw === 'SC' ||
+          casteRaw === 'ST' ||
+          casteRaw.includes('SC/ST') ||
+          casteRaw.includes('S.C') ||
+          casteRaw.includes('S.T') ||
+          /\b(SC|ST)\b/.test(casteRaw) ||
+          casteRaw.includes('ஆதி') ||
+          casteRaw.includes('பழங்குடி')
+        );
+      };
+
+      const isFemaleItem = (i: any): boolean => {
+        const mem = getMemberForItem(i);
+        const g = String((i as any).gender && String((i as any).gender).trim() !== '-' ? (i as any).gender : (mem?.gender || '')).trim().toLowerCase();
+        if (!g || g === '-') return false;
+        return (
+          g === 'f' ||
+          g.includes('female') ||
+          g.includes('பெண்') ||
+          g.includes('woman') ||
+          g.includes('women') ||
+          g.includes('lady') ||
+          g.includes('திருமதி') ||
+          /\bf\b/.test(g)
+        );
+      };
+
+      const isOfItem = (i: any): boolean => {
+        const fc = String(i.farmerClass || '').trim().toUpperCase();
+        const acresVal = parseFloat(String(i.acres || '0').replace(/[^0-9.]/g, '')) || 0;
+        if (fc === 'OF') return true;
+        if (acresVal > 5.0) return true;
+        return false;
+      };
+
+      const calcNew = printItems.filter(isNewMemberItem).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
+      const calcScst = printItems.filter(isScstItem).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
       const totalLoanOverall = printItems.reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcOthers = (totalLoanOverall > 0 && calcScst > 0) ? (totalLoanOverall - calcScst) : (totalLoanOverall > 0 ? totalLoanOverall : 0);
-      const calcSfmf = printItems.filter(i => {
-        const acres = parseFloat(String(i.acres || 0)) || 0;
-        return acres > 0 && acres <= 5.0;
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcOf = printItems.filter(i => {
-        const acres = parseFloat(String(i.acres || 0)) || 0;
-        return acres > 5.0;
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
-      const calcFemale = printItems.filter(i => {
-        const gender = ((i as any).gender || '').toLowerCase();
-        return gender.includes('f') || gender.includes('பெண்') || gender.includes('female');
-      }).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
+      const calcOthers = Math.max(0, totalLoanOverall - calcScst);
+      const calcOf = printItems.filter(isOfItem).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
+      const calcSfmf = Math.max(0, totalLoanOverall - calcOf);
+      const calcFemale = printItems.filter(isFemaleItem).reduce((sum, i) => sum + getItemLoanAmount(i), 0);
 
       // Crop aggregation - ONLY distinct crops recorded in current disbursement
       const cropMap = new Map<string, {
@@ -1525,7 +1568,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         const cashAmt = parseFloat(String(item.organicFertilizer || item.cash || '0').replace(/[^0-9.]/g, '')) || 0;
         const seedAmt = parseFloat(String((item as any).seed || '0').replace(/[^0-9.]/g, '')) || 0;
         const loanAmt = getItemLoanAmount(item);
-        const acresVal = parseFloat(item.acres || '0') || 0;
+        const acresVal = parseFloat(String(item.acres || '0').replace(/[^0-9.]/g, '')) || 0;
 
         const existing = cropMap.get(cropName) || {
           count: 0,
@@ -1664,37 +1707,37 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
               <tbody style="font-weight: 600;">
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">புதிய உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcNew > 0 ? calcNew.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcNew > 0 ? calcNew.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">SC/ST உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcScst > 0 ? calcScst.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcScst > 0 ? calcScst.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">இதர உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOthers > 0 ? calcOthers.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOthers > 0 ? calcOthers.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">SF/MF உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcSfmf > 0 ? calcSfmf.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcSfmf > 0 ? calcSfmf.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">OF உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOf > 0 ? calcOf.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcOf > 0 ? calcOf.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
                 <tr>
                   <td style="border: 1px solid #000000; padding: 3px 6px;">பெண் உறுப்பினர்கள்</td>
-                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcFemale > 0 ? calcFemale.toLocaleString('en-IN') : ''}</td>
+                  <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${calcFemale > 0 ? calcFemale.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center;"></td>
                   <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;"></td>
                 </tr>
@@ -1733,14 +1776,14 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                   <tr>
                     <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${idx + 1}</td>
                     <td style="border: 1px solid #000000; padding: 3px 6px; text-align: center; font-weight: bold;">${r.crop || ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.count || ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.acres > 0 ? r.acres.toFixed(2) : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.seed > 0 ? r.seed.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.chem > 0 ? r.chem.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.comp > 0 ? r.comp.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.pest > 0 ? r.pest.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.cash > 0 ? r.cash.toLocaleString('en-IN') : ''}</td>
-                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${r.totalLoan > 0 ? r.totalLoan.toLocaleString('en-IN') : ''}</td>
+                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.count || 0}</td>
+                    <td style="border: 1px solid #000000; padding: 3px; text-align: center;">${r.acres > 0 ? r.acres.toFixed(2) : '0.00'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.seed > 0 ? r.seed.toLocaleString('en-IN') : '0'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.chem > 0 ? r.chem.toLocaleString('en-IN') : '0'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.comp > 0 ? r.comp.toLocaleString('en-IN') : '0'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.pest > 0 ? r.pest.toLocaleString('en-IN') : '0'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right;">${r.cash > 0 ? r.cash.toLocaleString('en-IN') : '0'}</td>
+                    <td style="border: 1px solid #000000; padding: 3px 6px; text-align: right; font-weight: bold;">${r.totalLoan > 0 ? r.totalLoan.toLocaleString('en-IN') : '0'}</td>
                   </tr>
                 `).join('')}
                 <tr style="font-weight: 900; border-top: 2px solid #000000;">
@@ -2560,18 +2603,18 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
               <td style="border: 1px solid black; padding: 3px;">${item.surveyNo || '-'}</td>
               <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${formatAcres(item.acres)}</td>
               <td style="border: 1px solid black; padding: 3px;">${item.crop || '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '-'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '0'}</td>
               <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${loanAmt.toLocaleString('en-IN')}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${kcc6Num ? kcc6Num.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${bookChargeNum ? bookChargeNum.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: center;">${insuranceNum ? insuranceNum.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right;">${shareCapitalNum ? shareCapitalNum.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${totalDeductionNum ? totalDeductionNum.toLocaleString('en-IN') : '-'}</td>
-              <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: 900;">${netDisbursementNum ? netDisbursementNum.toLocaleString('en-IN') : '-'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${kcc6Num ? kcc6Num.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${bookChargeNum ? bookChargeNum.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: center;">${insuranceNum ? insuranceNum.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right;">${shareCapitalNum ? shareCapitalNum.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${totalDeductionNum ? totalDeductionNum.toLocaleString('en-IN') : '0'}</td>
+              <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: 900;">${netDisbursementNum ? netDisbursementNum.toLocaleString('en-IN') : '0'}</td>
               <td style="border: 1px solid black; padding: 3px 8px; min-width: 170px; width: 200px;"></td>
             </tr>
           `;
@@ -2588,18 +2631,18 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             <td style="border: 1px solid black; padding: 3px;">${item.surveyNo || '-'}</td>
             <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${formatAcres(item.acres)}</td>
             <td style="border: 1px solid black; padding: 3px;">${item.crop || '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '-'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '0'}</td>
             <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${loanAmt.toLocaleString('en-IN')}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${kcc6Num ? kcc6Num.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${bookChargeNum ? bookChargeNum.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: center;">${insuranceNum ? insuranceNum.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right;">${shareCapitalNum ? shareCapitalNum.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${totalDeductionNum ? totalDeductionNum.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: 900;">${netDisbursementNum ? netDisbursementNum.toLocaleString('en-IN') : '-'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${kcc6Num ? kcc6Num.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${bookChargeNum ? bookChargeNum.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: center;">${insuranceNum ? insuranceNum.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right;">${shareCapitalNum ? shareCapitalNum.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: bold;">${totalDeductionNum ? totalDeductionNum.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 3px; text-align: right; font-weight: 900;">${netDisbursementNum ? netDisbursementNum.toLocaleString('en-IN') : '0'}</td>
             <td style="border: 1px solid black; padding: 3px; font-weight: bold;">${mdccAccountNo}</td>
           </tr>
         `;
@@ -2617,11 +2660,11 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             <td style="border: 1px solid black; padding: 4px 2px;">${item.surveyNo || '-'}</td>
             <td style="border: 1px solid black; padding: 4px 2px; text-align: right; font-weight: bold;">${formatAcres(item.acres)}</td>
             <td style="border: 1px solid black; padding: 4px 2px;">${item.crop || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 3px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '0'}</td>
             <td style="border: 1px solid black; padding: 4px 3px; text-align: right; font-weight: bold;">${loanAmt.toLocaleString('en-IN')}</td>
             <td style="border: 1px solid black; padding: 4px 12px; min-width: 240px; width: 280px;"></td>
           </tr>
@@ -2638,15 +2681,15 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           <td style="border: 1px solid black; padding: 4px; font-weight: bold; text-align: center;">${cleanName}</td>
           <td style="border: 1px solid black; padding: 4px;">${item.prevLoanNo || '-'}</td>
           <td style="border: 1px solid black; padding: 4px;">${formatDateDDMMYYYY(item.prevLoanDate)}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${prevAmt ? prevAmt.toLocaleString('en-IN') : '-'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${prevAmt ? prevAmt.toLocaleString('en-IN') : '0'}</td>
           <td style="border: 1px solid black; padding: 4px;">${item.surveyNo || '-'}</td>
           <td style="border: 1px solid black; padding: 4px; text-align: right; font-weight: bold;">${formatAcres(item.acres)}</td>
           <td style="border: 1px solid black; padding: 4px;">${item.crop || '-'}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '-'}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '-'}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '-'}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '-'}</td>
-          <td style="border: 1px solid black; padding: 4px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '-'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${seedAmt ? seedAmt.toLocaleString('en-IN') : '0'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${chemAmt ? chemAmt.toLocaleString('en-IN') : '0'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${compAmt ? compAmt.toLocaleString('en-IN') : '0'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${pestAmt ? pestAmt.toLocaleString('en-IN') : '0'}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: right;">${cashAmt ? cashAmt.toLocaleString('en-IN') : '0'}</td>
           <td style="border: 1px solid black; padding: 4px; text-align: right; font-weight: bold;">${loanAmt.toLocaleString('en-IN')}</td>
         </tr>
       `;
@@ -2775,7 +2818,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td colspan="7" style="text-align: right; padding: 4px; border: 1px solid black;">மொத்தம் (${printItems.length} நபர்கள்)</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalAcres.toFixed(2)}</td>
         <td style="border: 1px solid black;"></td>
-        <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalChem ? totalChem.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalComp ? totalComp.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalPest ? totalPest.toLocaleString('en-IN') : '0'}</td>
@@ -2783,7 +2826,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalLoan.toLocaleString('en-IN')}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalKcc6 ? totalKcc6.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalBook ? totalBook.toLocaleString('en-IN') : '0'}</td>
-        <td style="text-align: center; padding: 4px; border: 1px solid black;">${totalIns ? totalIns.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: center; padding: 4px; border: 1px solid black;">${totalIns ? totalIns.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalShare ? totalShare.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; border: 1px solid black;">${totalDed ? totalDed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; font-weight: 900; border: 1px solid black;">${totalNet ? totalNet.toLocaleString('en-IN') : '0'}</td>
@@ -2796,7 +2839,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td colspan="7" style="text-align: right; padding: 4px;">மொத்தம் (${printItems.length} நபர்கள்)</td>
         <td style="text-align: right; padding: 4px;">${totalAcres.toFixed(2)}</td>
         <td></td>
-        <td style="text-align: right; padding: 4px;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: right; padding: 4px;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalChem ? totalChem.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalComp ? totalComp.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalPest ? totalPest.toLocaleString('en-IN') : '0'}</td>
@@ -2804,7 +2847,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td style="text-align: right; padding: 4px;">${totalLoan.toLocaleString('en-IN')}</td>
         <td style="text-align: right; padding: 4px;">${totalKcc6 ? totalKcc6.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalBook ? totalBook.toLocaleString('en-IN') : '0'}</td>
-        <td style="text-align: center; padding: 4px;">${totalIns ? totalIns.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: center; padding: 4px;">${totalIns ? totalIns.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalShare ? totalShare.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px;">${totalDed ? totalDed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 4px; font-weight: 900;">${totalNet ? totalNet.toLocaleString('en-IN') : '0'}</td>
@@ -2817,7 +2860,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td colspan="7" style="text-align: right; padding: 6px 12px; border: 1px solid black;">மொத்தம்</td>
         <td style="text-align: right; padding: 6px 2px; border: 1px solid black;">${totalAcres.toFixed(2)}</td>
         <td style="border: 1px solid black;"></td>
-        <td style="text-align: right; padding: 6px 3px; border: 1px solid black;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: right; padding: 6px 3px; border: 1px solid black;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px 3px; border: 1px solid black;">${totalChem ? totalChem.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px 3px; border: 1px solid black;">${totalComp ? totalComp.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px 3px; border: 1px solid black;">${totalPest ? totalPest.toLocaleString('en-IN') : '0'}</td>
@@ -2834,7 +2877,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         <td></td>
         <td style="text-align: right; padding: 6px;">${totalAcres.toFixed(2)}</td>
         <td></td>
-        <td style="text-align: right; padding: 6px;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '-'}</td>
+        <td style="text-align: right; padding: 6px;">${totalSeed ? totalSeed.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px;">${totalChem ? totalChem.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px;">${totalComp ? totalComp.toLocaleString('en-IN') : '0'}</td>
         <td style="text-align: right; padding: 6px;">${totalPest ? totalPest.toLocaleString('en-IN') : '0'}</td>
@@ -3367,7 +3410,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
   const handleEditItem = (item: any) => {
     setEditingItem(item);
 
-    const isNewMember = item.memberStatus === 'புதிய உறுப்பினர்' || item.prevLoanNo === 'புதிய உறுப்பினர்';
+    const isNewMember = item.memberStatus === 'புதிய உறுப்பினர்' || item.prevLoanNo === 'புதிய உறுப்பினர்' || String(item.mortgageType || '').includes('புதிய');
     setMemberStatus(isNewMember ? 'புதிய உறுப்பினர்' : 'பழைய உறுப்பினர்');
 
     const foundMember = members.find(m => 
@@ -3393,7 +3436,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       relation: String(item.relation || ''),
       mdcc: String(item.mdcc || ''),
       caste: String(item.caste || '-'),
-      gender: 'ஆண் உறுப்பினர்',
+      gender: String(item.gender || '-'),
       totalShare: 0
     };
 
@@ -3498,6 +3541,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       namini: selectedMember.namini || '',
       relation: selectedMember.relation || '',
       mdcc: selectedMember.mdcc || '',
+      caste: (category && category !== '-') ? category : (selectedMember.caste || '-'),
+      gender: selectedMember.gender || '',
       financialYear,
       rclNumber,
       rclDate,
@@ -3522,6 +3567,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       passbookFee,
       insurance,
       shareCapital,
+      memberStatus,
       farmerClass,
       disability,
       mortgageType,
@@ -3597,7 +3643,9 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       namini: selectedMember.namini || '',
       relation: selectedMember.relation || '',
       mdcc: selectedMember.mdcc || '',
-      caste: category || selectedMember.caste || '-',
+      caste: (category && category !== '-') ? category : (selectedMember.caste || '-'),
+      gender: selectedMember.gender || '',
+      memberStatus,
       totalShare: selectedMember.totalShare ?? selectedMember.landAcres ?? '',
 
       // Section 5: Land & Crop Details
@@ -3830,6 +3878,9 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         mobile: item.mobile || mem?.mobile || '',
         sb: item.sb || mem?.sb || '',
         erp: item.erp || mem?.erp || '',
+        caste: (item.caste && String(item.caste).trim() !== '' && String(item.caste).trim() !== '-') ? item.caste : (mem?.caste || '-'),
+        gender: (item.gender && String(item.gender).trim() !== '' && String(item.gender).trim() !== '-') ? item.gender : (mem?.gender || ''),
+        memberStatus: item.memberStatus || ((item.prevLoanNo === 'புதிய உறுப்பினர்' || String(item.mortgageType || '').includes('புதிய')) ? 'புதிய உறுப்பினர்' : 'பழைய உறுப்பினர்'),
         resolutionDate: effectiveItemResDate,
         resolutionNo: effectiveItemResNo
       };
@@ -4197,10 +4248,17 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 </span>
               </div>
 
-              <div className="bg-[#FAF9F5] p-2.5 rounded-lg border border-[#E2E2DC] transition-colors shadow-2xs col-span-2 sm:col-span-1">
+              <div className="bg-[#FAF9F5] p-2.5 rounded-lg border border-[#E2E2DC] transition-colors shadow-2xs">
                 <span className="text-[10px] text-stone-500 uppercase font-bold block">உறவு முறை (RELATIONSHIP):</span>
                 <span className="text-stone-800 font-semibold">
                   {selectedMember ? (selectedMember.relation || '-') : '-'}
+                </span>
+              </div>
+
+              <div className="bg-[#FAF9F5] p-2.5 rounded-lg border border-[#E2E2DC] transition-colors shadow-2xs">
+                <span className="text-[10px] text-stone-500 uppercase font-bold block">பாலினம் (GENDER):</span>
+                <span className="text-stone-900 font-semibold">
+                  {selectedMember ? (selectedMember.gender || '-') : '-'}
                 </span>
               </div>
             </div>
@@ -4939,6 +4997,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                   <div><span className="text-stone-500 block text-[10px]">ரேஷன் கார்டு:</span> <strong className="text-stone-800 block font-mono">{viewingItem.rationCard || '-'}</strong></div>
                   <div><span className="text-stone-500 block text-[10px]">வாரிசுதாரர்:</span> <strong className="text-stone-800 block">{viewingItem.namini || '-'}</strong></div>
                   <div><span className="text-stone-500 block text-[10px]">MDCC வங்கி:</span> <strong className="text-stone-800 block font-mono">{viewingItem.mdcc || '-'}</strong></div>
+                  <div><span className="text-stone-500 block text-[10px]">பாலினம் (Gender):</span> <strong className="text-stone-900 block font-semibold">{viewingItem.gender || '-'}</strong></div>
                 </div>
               </div>
 
