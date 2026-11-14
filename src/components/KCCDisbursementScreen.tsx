@@ -5,6 +5,7 @@ import {
   Part1RCLDetails 
 } from '../types';
 import { formatMobile, formatRationCard, formatMDCC, formatAadhar, formatIndianCurrency, formatIndianInputNumber, formatDateDDMMYYYY, extractSpreadsheetId, formatAcres } from '../utils/formatters';
+import { TamilDateInput } from './TamilDateInput';
 import { 
   Search, 
   PlusCircle, 
@@ -138,9 +139,41 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
   // Section 2: Disbursement Details
   const [currentDisbNo, setCurrentDisbNo] = useState<string>('2');
 
+  const toIsoDate = (d: string): string => {
+    if (!d) return '';
+    const trimmed = d.trim();
+    if (trimmed.includes('T')) {
+      const isoPart = trimmed.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(isoPart)) return isoPart;
+    }
+    const parts = trimmed.split(/[-/.]/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    const clean = trimmed.replace(/[^0-9]/g, '');
+    if (clean.length === 8) {
+      return `${clean.substring(4, 8)}-${clean.substring(2, 4)}-${clean.substring(0, 2)}`;
+    }
+    return '';
+  };
+
+  const fromIsoDate = (iso: string): string => {
+    if (!iso) return '';
+    const parts = iso.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+    }
+    return iso;
+  };
+
   // Section 3: Resolution Details
   const [resolutionNo, setResolutionNo] = useState<string>('1');
-  const [resolutionDate, setResolutionDate] = useState<string>('20 - 05 - 2026');
+  const [resolutionDate, setResolutionDate] = useState<string>('20-05-2026');
 
   // Section 4: Basic Details / Member Search
   const [searchAClassInput, setSearchAClassInput] = useState<string>('');
@@ -3736,18 +3769,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-700 font-bold mb-1">
-                  தீர்மான தேதி <span className="text-[#007A4D]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={resolutionDate}
-                  onChange={(e) => setResolutionDate(formatDateDDMMYYYY(e.target.value))}
-                  placeholder="20 - 05 - 2026 (ddmmyyyy)"
-                  className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs"
+                <TamilDateInput
+                  label="தீர்மான தேதி"
+                  value={toIsoDate(resolutionDate)}
+                  onChange={(ymd) => setResolutionDate(ymd ? fromIsoDate(ymd) : '')}
+                  required={true}
+                  accentColor="green"
                 />
-                <span className="text-[10px] text-stone-500 mt-1 block font-medium">வடிவம்: ddmmyyyy</span>
               </div>
             </div>
           </div>
