@@ -107,20 +107,37 @@ export async function getPaduvadaFromDb(disbNo?: string) {
   const db = await getDb();
   await deduplicatePaduvadaInDb();
 
-  let rows = queryObjects(db, 'SELECT * FROM paduvada ORDER BY id ASC');
-  
-  if (disbNo && String(disbNo).trim() !== '') {
+  const allRows = queryObjects(db, 'SELECT * FROM paduvada ORDER BY id ASC');
+
+  let maxDisbNo = 0;
+  allRows.forEach(r => {
+    const val = parseInt((r.current_disb_no || '').toString().trim(), 10);
+    if (!isNaN(val) && val > maxDisbNo) {
+      maxDisbNo = val;
+    }
+  });
+
+  let rows = allRows;
+  if (disbNo && String(disbNo).trim() !== '' && String(disbNo).trim().toLowerCase() !== 'all') {
     const target = String(disbNo).trim();
-    rows = rows.filter(r => String(r.current_disb_no || '').trim() === target);
+    const targetNum = parseInt(target, 10);
+    rows = allRows.filter(r => {
+      const rowDisb = String(r.current_disb_no || '').trim();
+      const rowNum = parseInt(rowDisb, 10);
+      return rowDisb === target || (!isNaN(targetNum) && !isNaN(rowNum) && rowNum === targetNum);
+    });
   }
 
   const items = rows.map((r, index) => ({
     id: `db-${r.id}-${r.a_class}`,
     dbId: r.id,
     rowIndex: r.row_index || (index + 2),
+    financialYear: r.financial_year || '',
     rclNumber: r.rcl_number || '',
     rclDate: r.rcl_date || '',
     sanctionedAmount: r.sanctioned_amount || '',
+    officerDesignation: r.officer_designation || '',
+    officerName: r.officer_name || '',
     currentDisbNo: r.current_disb_no || '',
     resolutionNo: r.resolution_no || '',
     resolutionDate: r.resolution_date || '',
@@ -165,17 +182,9 @@ export async function getPaduvadaFromDb(disbNo?: string) {
     addedAt: r.added_at || ''
   }));
 
-  let maxDisbNo = 0;
-  items.forEach(item => {
-    const val = parseInt((item.currentDisbNo || '').toString().trim(), 10);
-    if (!isNaN(val) && val > maxDisbNo) {
-      maxDisbNo = val;
-    }
-  });
-
   return {
     data: items,
-    totalCount: items.length,
+    totalCount: allRows.length,
     maxDisbNo: maxDisbNo > 0 ? maxDisbNo.toString() : '0'
   };
 }
@@ -183,16 +192,16 @@ export async function getPaduvadaFromDb(disbNo?: string) {
 export async function savePaduvadaToDb(p: any) {
   const db = await getDb();
   const addedAt = p.addedAt || new Date().toLocaleString('ta-IN');
-  const targetAClass = p.aClass || '';
-  const targetDisbNo = p.currentDisbNo || '';
-  const targetCrop = p.crop || '';
-  const targetSurvey = p.surveyNo || '';
+  const targetAClass = String(p.aClass || p.memberNo || '').trim();
+  const targetDisbNo = String(p.currentDisbNo || '').trim();
+  const targetCrop = String(p.crop || '').trim();
+  const targetSurvey = String(p.surveyNo || '').trim();
 
   // If a record with the exact same A-Class, Disb No, Crop, and Survey No exists, update it to avoid duplicates
   if (targetAClass && targetDisbNo && targetCrop) {
     const existing = queryObjects(db, `
       SELECT id FROM paduvada
-      WHERE a_class=? AND current_disb_no=? AND crop=? AND (survey_no=? OR ?='' OR survey_no='')
+      WHERE TRIM(a_class)=? AND TRIM(current_disb_no)=? AND TRIM(crop)=? AND (TRIM(survey_no)=? OR ?='' OR TRIM(survey_no)='')
       LIMIT 1
     `, [targetAClass, targetDisbNo, targetCrop, targetSurvey, targetSurvey]);
 
@@ -200,7 +209,8 @@ export async function savePaduvadaToDb(p: any) {
       const existingId = existing[0].id;
       runQuery(db, `
         UPDATE paduvada SET
-          rcl_number=?, rcl_date=?, sanctioned_amount=?, current_disb_no=?, resolution_no=?, resolution_date=?,
+          financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
+          current_disb_no=?, resolution_no=?, resolution_date=?,
           name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
           ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
           crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
@@ -208,7 +218,8 @@ export async function savePaduvadaToDb(p: any) {
           guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?, added_at=?
         WHERE id=?
       `, [
-        p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
+        p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+        p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
         p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
         p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
         p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
@@ -222,16 +233,17 @@ export async function savePaduvadaToDb(p: any) {
 
   runQuery(db, `
     INSERT INTO paduvada (
-      rcl_number, rcl_date, sanctioned_amount, current_disb_no, resolution_no, resolution_date,
+      financial_year, rcl_number, rcl_date, sanctioned_amount, officer_designation, officer_name,
+      current_disb_no, resolution_no, resolution_date,
       a_class, name, care_of, sb, erp, ins, door, street, village, aadhar_no, mobile, ration_card,
       namini, relation, mdcc, caste, total_share, survey_no, acres, crop, seed, chemical_fertilizer,
       pesticide, plowing, harvesting, fertilizer_kind, organic_fertilizer, total_loan_amount,
       farmer_class, disability, mortgage_type, guarantee_type, passbook_fee, insurance,
       share_capital, prev_loan_no, prev_loan_date, prev_loan_amount, added_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
-    p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '',
-    p.resolutionNo || '', p.resolutionDate || '', p.aClass || '', p.name || '',
+    p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+    p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '', targetAClass, p.name || '',
     p.careOf || '', p.sb || '', p.erp || '', p.ins || '',
     p.door || '', p.street || '', p.village || '', p.aadharNo || '',
     p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '',
@@ -247,119 +259,110 @@ export async function savePaduvadaToDb(p: any) {
 
 export async function updatePaduvadaInDb(p: any, aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = await getDb();
-  const targetAClass = aClass || p.aClass || '';
-  const targetDisbNo = currentDisbNo || p.currentDisbNo || '';
-  const targetCrop = crop || p.crop || '';
-  const targetId = id || p.dbId || (String(p.id || '').startsWith('db-') ? String(p.id).split('-')[1] : '');
+  const targetAClass = String(aClass || p.aClass || p.memberNo || '').trim();
+  const targetDisbNo = String(currentDisbNo || p.currentDisbNo || '').trim();
+  const targetCrop = String(crop || p.crop || '').trim();
+  const rawIdStr = String(id || p.dbId || (String(p.id || '').startsWith('db-') ? String(p.id).split('-')[1] : ''));
+  const numId = /^\d+$/.test(rawIdStr) ? parseInt(rawIdStr, 10) : NaN;
 
-  // 1. If explicit SQLite numeric ID is available, update that exact row
-  if (targetId && !isNaN(parseInt(targetId, 10))) {
-    const numId = parseInt(targetId, 10);
-    runQuery(db, `
-      UPDATE paduvada SET
-        rcl_number=?, rcl_date=?, sanctioned_amount=?, current_disb_no=?, resolution_no=?, resolution_date=?,
-        name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
-        ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
-        crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
-        organic_fertilizer=?, total_loan_amount=?, farmer_class=?, disability=?, mortgage_type=?,
-        guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
-      WHERE id=?
-    `, [
-      p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-      p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
-      p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
-      p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
-      p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
-      p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
-      numId
-    ]);
-    return;
+  // 1. If explicit SQLite numeric ID exists in DB, update that exact row
+  if (!isNaN(numId) && numId > 0) {
+    const existsById = queryObjects(db, 'SELECT id FROM paduvada WHERE id=?', [numId]);
+    if (existsById.length > 0) {
+      runQuery(db, `
+        UPDATE paduvada SET
+          financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
+          current_disb_no=?, resolution_no=?, resolution_date=?,
+          name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
+          ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
+          crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
+          organic_fertilizer=?, total_loan_amount=?, farmer_class=?, disability=?, mortgage_type=?,
+          guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
+        WHERE id=?
+      `, [
+        p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+        p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
+        p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
+        p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
+        p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
+        p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
+        p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
+        numId
+      ]);
+      return;
+    }
   }
 
-  if (!targetAClass) return;
-
-  // 2. If crop is specified, update ONLY that person's specific crop entry so other crops (e.g. coconut, banana) are never overwritten!
-  if (targetCrop && targetDisbNo) {
-    runQuery(db, `
-      UPDATE paduvada SET
-        rcl_number=?, rcl_date=?, sanctioned_amount=?, current_disb_no=?, resolution_no=?, resolution_date=?,
-        name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
-        ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
-        crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
-        organic_fertilizer=?, total_loan_amount=?, farmer_class=?, disability=?, mortgage_type=?,
-        guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
-      WHERE a_class=? AND current_disb_no=? AND crop=?
-    `, [
-      p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-      p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
-      p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
-      p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
-      p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
-      p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
-      targetAClass, targetDisbNo, targetCrop
-    ]);
-    return;
+  // 2. Match by (aClass, currentDisbNo, crop) if present, else upsert into SQLite
+  if (targetAClass && targetCrop && targetDisbNo) {
+    const existing = queryObjects(db, 'SELECT id FROM paduvada WHERE TRIM(a_class)=? AND TRIM(current_disb_no)=? AND TRIM(crop)=? LIMIT 1', [targetAClass, targetDisbNo, targetCrop]);
+    if (existing.length > 0) {
+      runQuery(db, `
+        UPDATE paduvada SET
+          financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
+          current_disb_no=?, resolution_no=?, resolution_date=?,
+          name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
+          ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
+          crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
+          organic_fertilizer=?, total_loan_amount=?, farmer_class=?, disability=?, mortgage_type=?,
+          guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
+        WHERE id=?
+      `, [
+        p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+        p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
+        p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
+        p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
+        p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
+        p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
+        p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
+        existing[0].id
+      ]);
+      return;
+    }
   }
 
-  // 3. Fallback: match by aClass and currentDisbNo
-  runQuery(db, `
-    UPDATE paduvada SET
-      rcl_number=?, rcl_date=?, sanctioned_amount=?, current_disb_no=?, resolution_no=?, resolution_date=?,
-      name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
-      ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
-      crop=?, seed=?, chemical_fertilizer=?, pesticide=?, plowing=?, harvesting=?, fertilizer_kind=?,
-      organic_fertilizer=?, total_loan_amount=?, farmer_class=?, disability=?, mortgage_type=?,
-      guarantee_type=?, passbook_fee=?, insurance=?, share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
-    WHERE a_class=? ${targetDisbNo ? 'AND current_disb_no=?' : ''}
-  `, targetDisbNo ? [
-    p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-    p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
-    p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
-    p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
-    p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
-    p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
-    targetAClass, targetDisbNo
-  ] : [
-    p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-    p.name || '', p.careOf || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '', p.aadharNo || '', p.mobile || '',
-    p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || '', p.totalShare || '', p.surveyNo || '', p.acres || '',
-    p.crop || '', p.seed || '', p.chemicalFertilizer || '', p.pesticide || '', p.plowing || '', p.harvesting || '', p.fertilizerKind || '',
-    p.organicFertilizer || '', p.totalLoanAmount || '', p.farmerClass || '', p.disability || '', p.mortgageType || '',
-    p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
-    targetAClass
-  ]);
+  await savePaduvadaToDb(p);
 }
 
 export async function updateBatchResolutionInDb(currentDisbNo: string, resolutionDate?: string, resolutionNo?: string) {
   const db = await getDb();
   const targetDisb = String(currentDisbNo || '').trim();
   if (!targetDisb) return;
+  const targetNum = parseInt(targetDisb, 10);
+  const altDisb = !isNaN(targetNum) ? String(targetNum) : targetDisb;
   if (resolutionDate !== undefined && resolutionNo !== undefined && resolutionNo !== '') {
-    runQuery(db, `UPDATE paduvada SET resolution_date=?, resolution_no=? WHERE TRIM(current_disb_no)=?`, [resolutionDate, resolutionNo, targetDisb]);
+    runQuery(db, `UPDATE paduvada SET resolution_date=?, resolution_no=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionDate, resolutionNo, targetDisb, altDisb]);
   } else if (resolutionDate !== undefined) {
-    runQuery(db, `UPDATE paduvada SET resolution_date=? WHERE TRIM(current_disb_no)=?`, [resolutionDate, targetDisb]);
+    runQuery(db, `UPDATE paduvada SET resolution_date=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionDate, targetDisb, altDisb]);
   } else if (resolutionNo !== undefined && resolutionNo !== '') {
-    runQuery(db, `UPDATE paduvada SET resolution_no=? WHERE TRIM(current_disb_no)=?`, [resolutionNo, targetDisb]);
+    runQuery(db, `UPDATE paduvada SET resolution_no=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionNo, targetDisb, altDisb]);
   }
 }
 
 export async function deletePaduvadaFromDb(aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = await getDb();
   if (id) {
-    const rawId = String(id).startsWith('db-') ? parseInt(String(id).split('-')[1], 10) : parseInt(id, 10);
+    const idStr = String(id);
+    const rawIdStr = idStr.startsWith('db-') ? idStr.split('-')[1] : (/^\d+$/.test(idStr) ? idStr : '');
+    const rawId = rawIdStr ? parseInt(rawIdStr, 10) : NaN;
     if (!isNaN(rawId) && rawId > 0) {
       runQuery(db, 'DELETE FROM paduvada WHERE id=?', [rawId]);
-      return;
     }
   }
-  if (!aClass) return;
+  const cleanAClass = String(aClass || '').trim();
+  if (!cleanAClass) return;
 
-  if (currentDisbNo && crop) {
-    runQuery(db, 'DELETE FROM paduvada WHERE a_class=? AND current_disb_no=? AND crop=?', [aClass, currentDisbNo, crop]);
-  } else if (currentDisbNo) {
-    runQuery(db, 'DELETE FROM paduvada WHERE a_class=? AND current_disb_no=?', [aClass, currentDisbNo]);
+  const cleanDisb = String(currentDisbNo || '').trim();
+  const cleanNum = parseInt(cleanDisb, 10);
+  const altDisb = !isNaN(cleanNum) ? String(cleanNum) : cleanDisb;
+  const cleanCrop = String(crop || '').trim();
+
+  if (cleanDisb && cleanCrop) {
+    runQuery(db, 'DELETE FROM paduvada WHERE TRIM(a_class)=? AND (TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?) AND TRIM(crop)=?', [cleanAClass, cleanDisb, altDisb, cleanCrop]);
+  } else if (cleanDisb) {
+    runQuery(db, 'DELETE FROM paduvada WHERE TRIM(a_class)=? AND (TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?)', [cleanAClass, cleanDisb, altDisb]);
   } else {
-    runQuery(db, 'DELETE FROM paduvada WHERE a_class=?', [aClass]);
+    runQuery(db, 'DELETE FROM paduvada WHERE TRIM(a_class)=?', [cleanAClass]);
   }
 }
 
@@ -648,16 +651,25 @@ export async function getAhPaduvadaFromDb(disbNo?: string) {
   const db = await getDb();
   await deduplicateAhPaduvadaInDb();
 
-  let sql = 'SELECT * FROM ah_paduvada ORDER BY id ASC';
-  let params: any[] = [];
+  const allRows = queryObjects(db, 'SELECT * FROM ah_paduvada ORDER BY id ASC');
+
+  let maxDisbNo = 0;
+  allRows.forEach(r => {
+    const val = parseInt((r.current_disb_no || '').toString().trim(), 10);
+    if (!isNaN(val) && val > maxDisbNo) {
+      maxDisbNo = val;
+    }
+  });
 
   const targetDisb = (disbNo || '').toString().trim();
-  if (targetDisb !== '') {
-    sql = 'SELECT * FROM ah_paduvada WHERE current_disb_no=? OR current_disb_no=? ORDER BY id ASC';
-    params = [targetDisb, parseInt(targetDisb, 10).toString()];
-  }
-
-  const rows = queryObjects(db, sql, params);
+  const targetNum = parseInt(targetDisb, 10);
+  const rows = (targetDisb !== '' && targetDisb.toLowerCase() !== 'all')
+    ? allRows.filter(r => {
+        const rowDisb = String(r.current_disb_no || '').trim();
+        const rowNum = parseInt(rowDisb, 10);
+        return rowDisb === targetDisb || (!isNaN(targetNum) && !isNaN(rowNum) && rowNum === targetNum);
+      })
+    : allRows;
 
   const items = rows.map((r, index) => ({
     id: `db-ah-${r.id}`,
@@ -721,17 +733,9 @@ export async function getAhPaduvadaFromDb(disbNo?: string) {
     addedAt: r.added_at || ''
   }));
 
-  let maxDisbNo = 0;
-  items.forEach(item => {
-    const val = parseInt((item.currentDisbNo || '').toString().trim(), 10);
-    if (!isNaN(val) && val > maxDisbNo) {
-      maxDisbNo = val;
-    }
-  });
-
   return {
     data: items,
-    totalCount: items.length,
+    totalCount: allRows.length,
     maxDisbNo: maxDisbNo > 0 ? maxDisbNo.toString() : '0'
   };
 }
@@ -739,16 +743,16 @@ export async function getAhPaduvadaFromDb(disbNo?: string) {
 export async function saveAhPaduvadaToDb(p: any) {
   const db = await getDb();
   const addedAt = p.addedAt || new Date().toLocaleString('ta-IN');
-  const targetAClass = p.aClass || p.memberNo || '';
-  const targetDisbNo = p.currentDisbNo || '';
-  const targetLivestock = p.livestockType || p.crop || '';
+  const targetAClass = String(p.aClass || p.memberNo || '').trim();
+  const targetDisbNo = String(p.currentDisbNo || '').trim();
+  const targetLivestock = String(p.livestockType || p.crop || '').trim();
   const targetCount = p.livestockCount || p.acres || '';
 
   // If record with same A-Class, Disb No, and Livestock Type exists, update it to avoid duplicates
   if (targetAClass && targetDisbNo) {
     const existing = queryObjects(db, `
       SELECT id FROM ah_paduvada
-      WHERE a_class=? AND current_disb_no=? AND (livestock_type=? OR crop=? OR ?='')
+      WHERE TRIM(a_class)=? AND TRIM(current_disb_no)=? AND (TRIM(livestock_type)=? OR TRIM(crop)=? OR ?='')
       LIMIT 1
     `, [targetAClass, targetDisbNo, targetLivestock, targetLivestock, targetLivestock]);
 
@@ -811,100 +815,118 @@ export async function saveAhPaduvadaToDb(p: any) {
 
 export async function updateAhPaduvadaInDb(p: any, aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = await getDb();
-  const targetAClass = aClass || p.aClass || p.memberNo || '';
-  const targetDisbNo = currentDisbNo || p.currentDisbNo || '';
-  const targetLivestock = crop || p.livestockType || p.crop || '';
-  const targetId = id || p.dbId || (String(p.id || '').startsWith('db-ah-') ? String(p.id).split('-')[2] : '');
+  const targetAClass = String(aClass || p.aClass || p.memberNo || '').trim();
+  const targetDisbNo = String(currentDisbNo || p.currentDisbNo || '').trim();
+  const targetLivestock = String(crop || p.livestockType || p.crop || '').trim();
+  const rawIdStr = String(id || p.dbId || (String(p.id || '').startsWith('db-ah-') ? String(p.id).split('-')[2] : ''));
+  const numId = /^\d+$/.test(rawIdStr) ? parseInt(rawIdStr, 10) : NaN;
 
-  if (targetId && !isNaN(parseInt(targetId, 10))) {
-    const numId = parseInt(targetId, 10);
-    runQuery(db, `
-      UPDATE ah_paduvada SET
-        financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
-        current_disb_no=?, resolution_no=?, resolution_date=?,
-        name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
-        ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
-        crop=?, livestock_type=?, livestock_count=?, seed=?, chemical_fertilizer=?, pesticide=?,
-        plowing=?, harvesting=?, fertilizer_kind=?, organic_fertilizer=?, total_loan_amount=?, loan_amount=?,
-        farmer_class=?, disability=?, mortgage_type=?, guarantee_type=?, passbook_fee=?, insurance=?,
-        share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
-      WHERE id=?
-    `, [
-      p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
-      p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-      p.name || '', p.careOf || p.fatherOrHusbandName || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '',
-      p.aadharNo || p.adhar || '', p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || p.category || '',
-      p.totalShare ?? p.landAcres ?? '', p.surveyNo || '-', p.acres || p.livestockCount || '',
-      targetLivestock, targetLivestock, p.livestockCount || p.acres || '',
-      p.seed || '0', p.chemicalFertilizer || '0', p.pesticide || '0', p.plowing || '0', p.harvesting || '0',
-      p.fertilizerKind || '0', p.organicFertilizer || p.loanAmount || '0', p.totalLoanAmount || '', p.loanAmount || '',
-      p.farmerClass || 'MF', p.disability || '0', p.mortgageType || '', p.guaranteeType || '',
-      p.passbookFee || '0', p.insurance || '0', p.shareCapital || '0',
-      p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
-      numId
-    ]);
-    return;
+  if (!isNaN(numId) && numId > 0) {
+    const existsById = queryObjects(db, 'SELECT id FROM ah_paduvada WHERE id=?', [numId]);
+    if (existsById.length > 0) {
+      runQuery(db, `
+        UPDATE ah_paduvada SET
+          financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
+          current_disb_no=?, resolution_no=?, resolution_date=?,
+          name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
+          ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
+          crop=?, livestock_type=?, livestock_count=?, seed=?, chemical_fertilizer=?, pesticide=?,
+          plowing=?, harvesting=?, fertilizer_kind=?, organic_fertilizer=?, total_loan_amount=?, loan_amount=?,
+          farmer_class=?, disability=?, mortgage_type=?, guarantee_type=?, passbook_fee=?, insurance=?,
+          share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
+        WHERE id=?
+      `, [
+        p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+        p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
+        p.name || '', p.careOf || p.fatherOrHusbandName || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '',
+        p.aadharNo || p.adhar || '', p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || p.category || '',
+        p.totalShare ?? p.landAcres ?? '', p.surveyNo || '-', p.acres || p.livestockCount || '',
+        targetLivestock, targetLivestock, p.livestockCount || p.acres || '',
+        p.seed || '0', p.chemicalFertilizer || '0', p.pesticide || '0', p.plowing || '0', p.harvesting || '0',
+        p.fertilizerKind || '0', p.organicFertilizer || p.loanAmount || '0', p.totalLoanAmount || '', p.loanAmount || '',
+        p.farmerClass || 'MF', p.disability || '0', p.mortgageType || '', p.guaranteeType || '',
+        p.passbookFee || '0', p.insurance || '0', p.shareCapital || '0',
+        p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
+        numId
+      ]);
+      return;
+    }
   }
 
-  if (!targetAClass) return;
+  if (targetAClass && targetDisbNo) {
+    const existing = queryObjects(db, 'SELECT id FROM ah_paduvada WHERE TRIM(a_class)=? AND TRIM(current_disb_no)=? AND (TRIM(livestock_type)=? OR TRIM(crop)=? OR ?=\'\') LIMIT 1', [targetAClass, targetDisbNo, targetLivestock, targetLivestock, targetLivestock]);
+    if (existing.length > 0) {
+      runQuery(db, `
+        UPDATE ah_paduvada SET
+          financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
+          current_disb_no=?, resolution_no=?, resolution_date=?,
+          name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
+          ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
+          crop=?, livestock_type=?, livestock_count=?, seed=?, chemical_fertilizer=?, pesticide=?,
+          plowing=?, harvesting=?, fertilizer_kind=?, organic_fertilizer=?, total_loan_amount=?, loan_amount=?,
+          farmer_class=?, disability=?, mortgage_type=?, guarantee_type=?, passbook_fee=?, insurance=?,
+          share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
+        WHERE id=?
+      `, [
+        p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
+        p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
+        p.name || '', p.careOf || p.fatherOrHusbandName || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '',
+        p.aadharNo || p.adhar || '', p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || p.category || '',
+        p.totalShare ?? p.landAcres ?? '', p.surveyNo || '-', p.acres || p.livestockCount || '',
+        targetLivestock, targetLivestock, p.livestockCount || p.acres || '',
+        p.seed || '0', p.chemicalFertilizer || '0', p.pesticide || '0', p.plowing || '0', p.harvesting || '0',
+        p.fertilizerKind || '0', p.organicFertilizer || p.loanAmount || '0', p.totalLoanAmount || '', p.loanAmount || '',
+        p.farmerClass || 'MF', p.disability || '0', p.mortgageType || '', p.guaranteeType || '',
+        p.passbookFee || '0', p.insurance || '0', p.shareCapital || '0',
+        p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
+        existing[0].id
+      ]);
+      return;
+    }
+  }
 
-  runQuery(db, `
-    UPDATE ah_paduvada SET
-      financial_year=?, rcl_number=?, rcl_date=?, sanctioned_amount=?, officer_designation=?, officer_name=?,
-      current_disb_no=?, resolution_no=?, resolution_date=?,
-      name=?, care_of=?, sb=?, erp=?, ins=?, door=?, street=?, village=?, aadhar_no=?, mobile=?,
-      ration_card=?, namini=?, relation=?, mdcc=?, caste=?, total_share=?, survey_no=?, acres=?,
-      crop=?, livestock_type=?, livestock_count=?, seed=?, chemical_fertilizer=?, pesticide=?,
-      plowing=?, harvesting=?, fertilizer_kind=?, organic_fertilizer=?, total_loan_amount=?, loan_amount=?,
-      farmer_class=?, disability=?, mortgage_type=?, guarantee_type=?, passbook_fee=?, insurance=?,
-      share_capital=?, prev_loan_no=?, prev_loan_date=?, prev_loan_amount=?
-    WHERE a_class=? ${targetDisbNo ? 'AND current_disb_no=?' : ''}
-  `, targetDisbNo ? [
-    p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
-    p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-    p.name || '', p.careOf || p.fatherOrHusbandName || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '',
-    p.aadharNo || p.adhar || '', p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || p.category || '',
-    p.totalShare ?? p.landAcres ?? '', p.surveyNo || '-', p.acres || p.livestockCount || '',
-    targetLivestock, targetLivestock, p.livestockCount || p.acres || '',
-    p.seed || '0', p.chemicalFertilizer || '0', p.pesticide || '0', p.plowing || '0', p.harvesting || '0',
-    p.fertilizerKind || '0', p.organicFertilizer || p.loanAmount || '0', p.totalLoanAmount || '', p.loanAmount || '',
-    p.farmerClass || 'MF', p.disability || '0', p.mortgageType || '', p.guaranteeType || '',
-    p.passbookFee || '0', p.insurance || '0', p.shareCapital || '0',
-    p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
-    targetAClass, targetDisbNo
-  ] : [
-    p.financialYear || '', p.rclNumber || '', p.rclDate || '', p.sanctionedAmount || '', p.officerDesignation || '', p.officerName || '',
-    p.currentDisbNo || '', p.resolutionNo || '', p.resolutionDate || '',
-    p.name || '', p.careOf || p.fatherOrHusbandName || '', p.sb || '', p.erp || '', p.ins || '', p.door || '', p.street || '', p.village || '',
-    p.aadharNo || p.adhar || '', p.mobile || '', p.rationCard || '', p.namini || '', p.relation || '', p.mdcc || '', p.caste || p.category || '',
-    p.totalShare ?? p.landAcres ?? '', p.surveyNo || '-', p.acres || p.livestockCount || '',
-    targetLivestock, targetLivestock, p.livestockCount || p.acres || '',
-    p.seed || '0', p.chemicalFertilizer || '0', p.pesticide || '0', p.plowing || '0', p.harvesting || '0',
-    p.fertilizerKind || '0', p.organicFertilizer || p.loanAmount || '0', p.totalLoanAmount || '', p.loanAmount || '',
-    p.farmerClass || 'MF', p.disability || '0', p.mortgageType || '', p.guaranteeType || '',
-    p.passbookFee || '0', p.insurance || '0', p.shareCapital || '0',
-    p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
-    targetAClass
-  ]);
+  await saveAhPaduvadaToDb(p);
+}
+
+export async function updateAhBatchResolutionInDb(currentDisbNo: string, resolutionDate?: string, resolutionNo?: string) {
+  const db = await getDb();
+  const targetDisb = String(currentDisbNo || '').trim();
+  if (!targetDisb) return;
+  const targetNum = parseInt(targetDisb, 10);
+  const altDisb = !isNaN(targetNum) ? String(targetNum) : targetDisb;
+  if (resolutionDate !== undefined && resolutionNo !== undefined && resolutionNo !== '') {
+    runQuery(db, `UPDATE ah_paduvada SET resolution_date=?, resolution_no=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionDate, resolutionNo, targetDisb, altDisb]);
+  } else if (resolutionDate !== undefined) {
+    runQuery(db, `UPDATE ah_paduvada SET resolution_date=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionDate, targetDisb, altDisb]);
+  } else if (resolutionNo !== undefined && resolutionNo !== '') {
+    runQuery(db, `UPDATE ah_paduvada SET resolution_no=? WHERE TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?`, [resolutionNo, targetDisb, altDisb]);
+  }
 }
 
 export async function deleteAhPaduvadaFromDb(aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = await getDb();
   if (id) {
-    const rawId = String(id).startsWith('db-ah-') ? parseInt(String(id).split('-')[2], 10) : parseInt(id, 10);
+    const idStr = String(id);
+    const rawIdStr = idStr.startsWith('db-ah-') ? idStr.split('-')[2] : (/^\d+$/.test(idStr) ? idStr : '');
+    const rawId = rawIdStr ? parseInt(rawIdStr, 10) : NaN;
     if (!isNaN(rawId) && rawId > 0) {
       runQuery(db, 'DELETE FROM ah_paduvada WHERE id=?', [rawId]);
-      return;
     }
   }
-  if (!aClass) return;
+  const cleanAClass = String(aClass || '').trim();
+  if (!cleanAClass) return;
 
-  if (currentDisbNo && crop) {
-    runQuery(db, 'DELETE FROM ah_paduvada WHERE a_class=? AND current_disb_no=? AND (livestock_type=? OR crop=?)', [aClass, currentDisbNo, crop, crop]);
-  } else if (currentDisbNo) {
-    runQuery(db, 'DELETE FROM ah_paduvada WHERE a_class=? AND current_disb_no=?', [aClass, currentDisbNo]);
+  const cleanDisb = String(currentDisbNo || '').trim();
+  const cleanNum = parseInt(cleanDisb, 10);
+  const altDisb = !isNaN(cleanNum) ? String(cleanNum) : cleanDisb;
+  const cleanCrop = String(crop || '').trim();
+
+  if (cleanDisb && cleanCrop) {
+    runQuery(db, 'DELETE FROM ah_paduvada WHERE TRIM(a_class)=? AND (TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?) AND (TRIM(livestock_type)=? OR TRIM(crop)=?)', [cleanAClass, cleanDisb, altDisb, cleanCrop, cleanCrop]);
+  } else if (cleanDisb) {
+    runQuery(db, 'DELETE FROM ah_paduvada WHERE TRIM(a_class)=? AND (TRIM(current_disb_no)=? OR TRIM(current_disb_no)=?)', [cleanAClass, cleanDisb, altDisb]);
   } else {
-    runQuery(db, 'DELETE FROM ah_paduvada WHERE a_class=?', [aClass]);
+    runQuery(db, 'DELETE FROM ah_paduvada WHERE TRIM(a_class)=?', [cleanAClass]);
   }
 }
 

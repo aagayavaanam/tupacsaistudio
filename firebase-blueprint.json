@@ -42,6 +42,23 @@
       },
       "required": ["aClass"]
     },
+    "ah_paduvada": {
+      "title": "AH Paduvada Loans",
+      "description": "Animal Husbandry (KCC-AH) disbursement records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rclNumber": { "type": "string" },
+        "currentDisbNo": { "type": "string" },
+        "aClass": { "type": "string" },
+        "name": { "type": "string" },
+        "livestockType": { "type": "string" },
+        "livestockCount": { "type": "string" },
+        "totalLoanAmount": { "type": "string" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["aClass"]
+    },
     "bank_sheet": {
       "title": "KCC Bank Sheet",
       "description": "KCC Bank account transactions and calculations",

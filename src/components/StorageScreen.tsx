@@ -32,11 +32,12 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
   bankAccounts,
   onNavigate
 }) => {
-  const [, setDbStatus] = useState<{
+  const [dbStatus, setDbStatus] = useState<{
     connected: boolean;
     bankRowsCount?: number;
     membersCount?: number;
     paduvadaCount?: number;
+    ahPaduvadaCount?: number;
   }>({ connected: true });
 
   useEffect(() => {
@@ -45,6 +46,21 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
       .then((data) => {
         if (data && data.connected) {
           setDbStatus(data);
+        } else {
+          fetch('/api/sqlite/status')
+            .then((r) => r.json())
+            .then((sq) => {
+              if (sq && sq.success && sq.status) {
+                setDbStatus({
+                  connected: true,
+                  membersCount: sq.status.membersCount,
+                  paduvadaCount: sq.status.paduvadaCount,
+                  ahPaduvadaCount: sq.status.ahPaduvadaCount,
+                  bankRowsCount: sq.status.bankSheetCount
+                });
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -210,7 +226,7 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
           <p className="text-[11px] text-stone-500 mt-2 font-medium">பயிர்க்கடன் SB மற்றும் பயிர்க்கடன் கணக்குகள்</p>
         </div>
 
-        {/* KCC Disbursements */}
+        {/* KCC & AH Disbursements */}
         <div 
           onClick={() => onNavigate('kcc-disbursement')}
           className="bg-white p-5 rounded-2xl border border-[#E2E2DC] shadow-2xs hover:shadow-md transition-all cursor-pointer group"
@@ -224,12 +240,20 @@ export const StorageScreen: React.FC<StorageScreenProps> = ({
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-stone-900">{disbursements.length}</span>
+            <span className="text-3xl font-black text-stone-900">
+              {(dbStatus.paduvadaCount !== undefined || dbStatus.ahPaduvadaCount !== undefined)
+                ? ((dbStatus.paduvadaCount || 0) + (dbStatus.ahPaduvadaCount || 0))
+                : disbursements.length}
+            </span>
             <span className="text-xs font-bold text-[#007A4D] flex items-center gap-0.5 group-hover:underline">
               விவரம் <ArrowRight className="w-3 h-3" />
             </span>
           </div>
-          <p className="text-[11px] text-stone-500 mt-2 font-medium">RCL விபரம் (பாகம் 1) மற்றும் கடன் வழங்கல்கள்</p>
+          <p className="text-[11px] text-stone-500 mt-2 font-medium">
+            {(dbStatus.paduvadaCount !== undefined || dbStatus.ahPaduvadaCount !== undefined)
+              ? `KCC: ${dbStatus.paduvadaCount || 0} | AH: ${dbStatus.ahPaduvadaCount || 0} (Firebase & SQLite)`
+              : 'RCL விபரம் (பாகம் 1) மற்றும் கடன் வழங்கல்கள்'}
+          </p>
         </div>
 
         {/* Interest Calculations Stat */}

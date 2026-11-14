@@ -16,6 +16,7 @@ import {
   getAhPaduvadaFromDb,
   saveAhPaduvadaToDb,
   updateAhPaduvadaInDb,
+  updateAhBatchResolutionInDb,
   deleteAhPaduvadaFromDb,
   getBankSheetFromDb,
   saveBankRowToDb,
@@ -43,10 +44,12 @@ import {
   deleteMemberFromFirestore,
   getPaduvadaFromFirestore,
   savePaduvadaToFirestore,
+  deletePaduvadaFromFirestore,
   updateBatchResolutionInFirestore,
   getAhPaduvadaFromFirestore,
   saveAhPaduvadaToFirestore,
   deleteAhPaduvadaFromFirestore,
+  updateAhBatchResolutionInFirestore,
   getAppSettingFromFirestore,
   saveAppSettingToFirestore
 } from './server/firebase-service';
@@ -602,10 +605,11 @@ app.post('/api/sheets/init-sheet', async (req, res) => {
   }
 });
 
-// 4. POST /api/sheets/add-paduvada - Save Paduvada record to SQLite, Firestore and Google Sheet
+// 4. POST /api/sheets/add-paduvada - Save Paduvada record to SQLite, Firestore (and optional Google Sheet)
 app.post('/api/sheets/add-paduvada', async (req, res) => {
   try {
-    const { spreadsheetId, webAppUrl, paduvadaData, type } = req.body;
+    const { spreadsheetId, webAppUrl, paduvadaData, type, storageOnly: bodyStorageOnly } = req.body;
+    const storageOnly = bodyStorageOnly === true || req.query.storageOnly === 'true';
 
     if (!paduvadaData) {
       return res.status(400).json({ success: false, error: 'பட்டுவாடா விபரங்கள் தேவை.' });
@@ -614,20 +618,25 @@ app.post('/api/sheets/add-paduvada', async (req, res) => {
     const isAH = type === 'ah' || req.query.type === 'ah' || paduvadaData.loanType === 'ah' || Boolean(paduvadaData.livestockType);
 
     // 1. Save into SQLite AND Firebase Firestore Cloud Database
+    let firestoreSaved = false;
     if (isAH) {
       await saveAhPaduvadaToDb(paduvadaData);
-      await saveAhPaduvadaToFirestore(paduvadaData);
+      firestoreSaved = await saveAhPaduvadaToFirestore(paduvadaData);
+      if (paduvadaData.currentDisbNo && paduvadaData.resolutionDate) {
+        await updateAhBatchResolutionInDb(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
+        updateAhBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+      }
     } else {
       await savePaduvadaToDb(paduvadaData);
-      await savePaduvadaToFirestore(paduvadaData);
+      firestoreSaved = await savePaduvadaToFirestore(paduvadaData);
       if (paduvadaData.currentDisbNo && paduvadaData.resolutionDate) {
         await updateBatchResolutionInDb(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
         updateBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
       }
     }
 
-    // 2. Async sync to Google Sheets if configured
-    if (webAppUrl || spreadsheetId) {
+    // 2. Sync to Google Sheets ONLY if explicitly requested (!storageOnly)
+    if (!storageOnly && (webAppUrl || spreadsheetId)) {
       const targetSheet = isAH ? 'AH All Paduvada Members' : 'KCC All Paduvada Members';
       const HEADERS = isAH ? [
         'RCL எண்', 'RCL தேதி', 'அனுமதிக்கப்பட்ட கடன் அளவு', 'தற்போதைய AH பட்டுவாடா எண்', 'தீர்மான எண்', 'தீர்மான தேதி',
@@ -700,7 +709,10 @@ app.post('/api/sheets/add-paduvada', async (req, res) => {
 
     return res.json({
       success: true,
-      message: isAH ? 'AH பட்டுவாடா விபரம் SQLite மற்றும் Firestore-ல் வெற்றியுடன் பதிவானது!' : 'பட்டுவாடா விபரம் SQLite தரவுத்தளத்தில் வெற்றியுடன் பதிவானது!'
+      storageSaved: { sqlite: true, firestore: firestoreSaved },
+      message: isAH
+        ? 'AH பட்டுவாடா விபரம் சேமிப்பகத்தில் (Firebase & SQLite DB) வெற்றியுடன் பதிவானது!'
+        : 'KCC பட்டுவாடா விபரம் சேமிப்பகத்தில் (Firebase & SQLite DB) வெற்றியுடன் பதிவானது!'
     });
   } catch (error: any) {
     console.error('Error adding paduvada member:', error?.message || error);
@@ -712,7 +724,7 @@ app.post('/api/sheets/add-paduvada', async (req, res) => {
   }
 });
 
-// 5. GET /api/sheets/get-paduvada - Fetch Paduvada records from SQLite, Firestore or Google Sheet
+// 5. GET /api/sheets/get-paduvada - Fetch Paduvada records from SQLite & Firestore Storage (or Google Sheet if explicitly requested)
 app.get('/api/sheets/get-paduvada', async (req, res) => {
   try {
     const spreadsheetId = req.query.spreadsheetId as string;
@@ -720,69 +732,88 @@ app.get('/api/sheets/get-paduvada', async (req, res) => {
     const disbNo = req.query.disbNo as string;
     const forceRefresh = req.query.forceRefresh === 'true';
     const isAH = req.query.type === 'ah';
+    const storageOnly = req.query.storageOnly === 'true' || (!spreadsheetId && !webAppUrl);
 
-    // 1. First check SQLite Database
-    if (!forceRefresh) {
-      const dbResult = isAH ? await getAhPaduvadaFromDb(disbNo) : await getPaduvadaFromDb(disbNo);
-      if (dbResult && dbResult.data && dbResult.data.length > 0) {
-        return res.json({
-          success: true,
-          data: dbResult.data,
-          totalCount: dbResult.totalCount,
-          maxDisbNo: dbResult.maxDisbNo,
-          source: 'sqlite'
-        });
-      }
-    }
-
-    // 2. Check Firebase Firestore Database
-    if (!forceRefresh) {
+    // 1. Read from both SQLite and Firebase Firestore Storage when storageOnly or !forceRefresh
+    if (storageOnly || !forceRefresh) {
+      const dbAllResult = isAH ? await getAhPaduvadaFromDb('') : await getPaduvadaFromDb('');
       const fsResult = isAH ? await getAhPaduvadaFromFirestore() : await getPaduvadaFromFirestore();
-      if (fsResult && fsResult.length > 0) {
-        // Sync to SQLite
-        for (const item of fsResult) {
-          if (isAH) {
-            saveAhPaduvadaToDb(item).catch(() => {});
+
+      const dbItems: any[] = dbAllResult?.data || [];
+      const fsItems: any[] = Array.isArray(fsResult) ? fsResult : [];
+
+      if (dbItems.length > 0 || fsItems.length > 0 || storageOnly) {
+        const makeKey = (item: any) => {
+          const a = String(item.aClass || item.memberNo || '').trim().toLowerCase();
+          const dStr = String(item.currentDisbNo || '').trim();
+          const dNum = parseInt(dStr, 10);
+          const d = !isNaN(dNum) ? String(dNum) : dStr.toLowerCase();
+          const c = String(isAH ? (item.livestockType || item.crop || '') : (item.crop || '')).trim().toLowerCase();
+          const s = isAH ? '' : String(item.surveyNo || '').trim().toLowerCase();
+          return `${a}|${d}|${c}|${s}`;
+        };
+
+        const mergedMap = new Map<string, any>();
+        for (const item of dbItems) {
+          mergedMap.set(makeKey(item), item);
+        }
+        for (const fsItem of fsItems) {
+          const k = makeKey(fsItem);
+          const existing = mergedMap.get(k);
+          if (existing) {
+            mergedMap.set(k, {
+              ...existing,
+              ...fsItem,
+              dbId: existing.dbId,
+              id: fsItem.id || existing.id
+            });
           } else {
-            savePaduvadaToDb(item).catch(() => {});
+            mergedMap.set(k, fsItem);
+            if (isAH) {
+              saveAhPaduvadaToDb(fsItem).catch(() => {});
+            } else {
+              savePaduvadaToDb(fsItem).catch(() => {});
+            }
           }
         }
+
+        const mergedAll = Array.from(mergedMap.values());
         let maxDisbNo = 0;
-        fsResult.forEach((item: any) => {
+        mergedAll.forEach((item: any) => {
           const val = parseInt((item.currentDisbNo || '').toString().trim(), 10);
           if (!isNaN(val) && val > maxDisbNo) {
             maxDisbNo = val;
           }
         });
+
         const targetDisb = (disbNo || '').toString().trim();
-        const filtered = (targetDisb !== '')
-          ? fsResult.filter((item: any) => {
+        const targetNum = parseInt(targetDisb, 10);
+        const filtered = (targetDisb !== '' && targetDisb.toLowerCase() !== 'all')
+          ? mergedAll.filter((item: any) => {
               const itemDisb = (item.currentDisbNo || '').toString().trim();
-              return itemDisb === targetDisb || (parseInt(itemDisb, 10) > 0 && parseInt(itemDisb, 10) === parseInt(targetDisb, 10));
+              const itemNum = parseInt(itemDisb, 10);
+              return itemDisb === targetDisb || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum);
             })
-          : fsResult;
+          : mergedAll;
+
         return res.json({
           success: true,
           data: filtered,
-          totalCount: fsResult.length,
+          totalCount: mergedAll.length,
           maxDisbNo: maxDisbNo > 0 ? maxDisbNo.toString() : '0',
-          source: 'firestore'
+          source: 'storage'
         });
       }
     }
 
     if (!spreadsheetId && !webAppUrl) {
-      const dbResult = isAH ? await getAhPaduvadaFromDb(disbNo) : await getPaduvadaFromDb(disbNo);
-      if (dbResult && dbResult.data) {
-        return res.json({
-          success: true,
-          data: dbResult.data,
-          totalCount: dbResult.totalCount,
-          maxDisbNo: dbResult.maxDisbNo,
-          source: 'sqlite'
-        });
-      }
-      return res.status(400).json({ success: false, error: 'Spreadsheet ID அல்லது Google Apps Script URL தேவை.' });
+      return res.json({
+        success: true,
+        data: [],
+        totalCount: 0,
+        maxDisbNo: '0',
+        source: 'storage'
+      });
     }
 
     let rawRows: any[][] = [];
@@ -983,24 +1014,26 @@ app.get('/api/sheets/get-paduvada', async (req, res) => {
   }
 });
 
-// 6. POST /api/sheets/delete-paduvada - Delete a Paduvada record from SQLite, Firestore and Google Sheet
+// 6. POST /api/sheets/delete-paduvada - Delete a Paduvada record from SQLite, Firestore (and optional Google Sheet)
 app.post('/api/sheets/delete-paduvada', async (req, res) => {
   try {
-    const { spreadsheetId: rawSheetId, webAppUrl, aClass, currentDisbNo, rowIndex, crop, id, type } = req.body;
+    const { spreadsheetId: rawSheetId, webAppUrl, aClass, currentDisbNo, rowIndex, crop, id, type, storageOnly: bodyStorageOnly } = req.body;
     const spreadsheetId = cleanSpreadsheetId(rawSheetId || '');
     const isAH = type === 'ah' || req.query.type === 'ah';
+    const storageOnly = bodyStorageOnly === true || req.query.storageOnly === 'true';
 
     // 1. Delete from SQLite DB & Firestore
     if (isAH) {
       await deleteAhPaduvadaFromDb(aClass, currentDisbNo, crop, id);
-      if (id) await deleteAhPaduvadaFromFirestore(id);
+      await deleteAhPaduvadaFromFirestore(aClass, currentDisbNo, crop, id);
     } else {
       await deletePaduvadaFromDb(aClass, currentDisbNo, crop, id);
+      await deletePaduvadaFromFirestore(aClass, currentDisbNo, crop, id);
     }
 
-    // 2. Async sync to Google Sheets if configured
+    // 2. Sync to Google Sheets ONLY if explicitly requested (!storageOnly)
     const targetSheet = isAH ? 'AH All Paduvada Members' : 'KCC All Paduvada Members';
-    if (webAppUrl && webAppUrl.startsWith('http')) {
+    if (!storageOnly && webAppUrl && webAppUrl.startsWith('http')) {
       postToAppsScript(webAppUrl, {
         action: 'deletePaduvada',
         sheetName: targetSheet,
@@ -1010,7 +1043,7 @@ app.post('/api/sheets/delete-paduvada', async (req, res) => {
         crop,
         id
       }).catch(e => console.log('Apps Script delete notice:', e));
-    } else if (spreadsheetId) {
+    } else if (!storageOnly && spreadsheetId) {
       try {
         const sheets = getSheetsClient(req);
         const meta = await sheets.spreadsheets.get({ spreadsheetId });
@@ -1069,7 +1102,7 @@ app.post('/api/sheets/delete-paduvada', async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'தரவுத்தளத்திலிருந்து நபர் வெற்றியுடன் நீக்கப்பட்டார்!'
+      message: 'சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) நபர் வெற்றியுடன் நீக்கப்பட்டார்!'
     });
   } catch (error: any) {
     console.error('Error deleting paduvada member:', error?.message || error);
@@ -1081,10 +1114,11 @@ app.post('/api/sheets/delete-paduvada', async (req, res) => {
   }
 });
 
-// 7. POST /api/sheets/update-paduvada - Update a Paduvada record in SQLite, Firestore and Google Sheet
+// 7. POST /api/sheets/update-paduvada - Update a Paduvada record in SQLite, Firestore (and optional Google Sheet)
 app.post('/api/sheets/update-paduvada', async (req, res) => {
   try {
-    const { spreadsheetId, webAppUrl, paduvadaData, rowIndex, aClass, currentDisbNo, crop, id, type } = req.body;
+    const { spreadsheetId, webAppUrl, paduvadaData, rowIndex, aClass, currentDisbNo, crop, id, type, storageOnly: bodyStorageOnly } = req.body;
+    const storageOnly = bodyStorageOnly === true || req.query.storageOnly === 'true';
 
     if (!paduvadaData) {
       return res.status(400).json({ error: 'புதுப்பிக்கப்பட வேண்டிய தகவல்கள் தேவை.' });
@@ -1102,6 +1136,11 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
         id || paduvadaData.id || paduvadaData.dbId
       );
       await saveAhPaduvadaToFirestore(paduvadaData);
+      const batchDisbNo = currentDisbNo || paduvadaData.currentDisbNo;
+      if (batchDisbNo && paduvadaData.resolutionDate) {
+        await updateAhBatchResolutionInDb(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
+        updateAhBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+      }
     } else {
       await updatePaduvadaInDb(
         paduvadaData,
@@ -1118,9 +1157,9 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
       }
     }
 
-    // 2. Async sync to Google Sheets if configured
+    // 2. Sync to Google Sheets ONLY if explicitly requested (!storageOnly)
     const targetSheet = isAH ? 'AH All Paduvada Members' : 'KCC All Paduvada Members';
-    if (webAppUrl && webAppUrl.startsWith('http')) {
+    if (!storageOnly && webAppUrl && webAppUrl.startsWith('http')) {
       postToAppsScript(webAppUrl, {
         action: 'updatePaduvada',
         sheetName: targetSheet,
@@ -1131,7 +1170,7 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
         crop: crop || paduvadaData.crop || paduvadaData.livestockType,
         id: id || paduvadaData.id
       }).catch(e => console.log('Apps Script update notice:', e));
-    } else if (spreadsheetId) {
+    } else if (!storageOnly && spreadsheetId) {
       try {
         const sheets = getSheetsClient(req);
         let targetRowNumber = rowIndex;
@@ -1200,7 +1239,7 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'தரவுத்தளத்தில் நபர் விபரங்கள் வெற்றியுடன் புதுப்பிக்கப்பட்டன!'
+      message: 'சேமிப்பகத்தில் (Firebase & SQLite DB) நபர் விபரங்கள் வெற்றியுடன் புதுப்பிக்கப்பட்டன!'
     });
   } catch (error: any) {
     console.error('Error updating paduvada member:', error?.message || error);
@@ -1214,20 +1253,28 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
 // 7b. POST /api/sheets/update-batch-resolution - Sync resolutionDate & resolutionNo across entire disbursement batch
 app.post('/api/sheets/update-batch-resolution', async (req, res) => {
   try {
-    const { currentDisbNo, resolutionDate, resolutionNo, spreadsheetId: rawSheetId } = req.body;
+    const { currentDisbNo, resolutionDate, resolutionNo, spreadsheetId: rawSheetId, type, storageOnly: bodyStorageOnly } = req.body;
     const targetDisb = String(currentDisbNo || '').trim();
+    const isAH = type === 'ah' || req.query.type === 'ah';
+    const storageOnly = bodyStorageOnly === true || req.query.storageOnly === 'true';
+
     if (!targetDisb) {
       return res.status(400).json({ success: false, error: 'பட்டுவாடா எண் தேவை.' });
     }
 
-    await updateBatchResolutionInDb(targetDisb, resolutionDate, resolutionNo);
-    await updateBatchResolutionInFirestore(targetDisb, resolutionDate, resolutionNo);
+    if (isAH) {
+      await updateAhBatchResolutionInDb(targetDisb, resolutionDate, resolutionNo);
+      await updateAhBatchResolutionInFirestore(targetDisb, resolutionDate, resolutionNo);
+    } else {
+      await updateBatchResolutionInDb(targetDisb, resolutionDate, resolutionNo);
+      await updateBatchResolutionInFirestore(targetDisb, resolutionDate, resolutionNo);
+    }
 
     const spreadsheetId = cleanSpreadsheetId(rawSheetId || '');
-    if (spreadsheetId && resolutionDate !== undefined) {
+    if (!storageOnly && spreadsheetId && resolutionDate !== undefined) {
       try {
         const sheets = getSheetsClient(req);
-        const targetSheet = 'KCC All Paduvada Members';
+        const targetSheet = isAH ? 'AH All Paduvada Members' : 'KCC All Paduvada Members';
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId,
           range: `'${targetSheet}'!A1:F1000`,

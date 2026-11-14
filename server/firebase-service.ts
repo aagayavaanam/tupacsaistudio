@@ -205,7 +205,19 @@ export async function savePaduvadaToFirestore(paduvada: any) {
   if (!db) return false;
 
   try {
-    const docId = paduvada.id || `pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const clean = (v: any) => String(v || '').trim().replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_');
+    const targetAClass = clean(paduvada.aClass || paduvada.memberNo);
+    const targetDisbNo = clean(paduvada.currentDisbNo);
+    const targetCrop = clean(paduvada.crop);
+    const targetSurvey = clean(paduvada.surveyNo);
+
+    const existingId = String(paduvada.id || '');
+    const docId = existingId && existingId.startsWith('pad_')
+      ? existingId
+      : (targetAClass && targetDisbNo
+          ? `pad_${targetDisbNo}_${targetAClass}_${targetCrop || 'crop'}_${targetSurvey || '0'}`
+          : `pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+
     const data = {
       ...paduvada,
       id: docId,
@@ -216,6 +228,56 @@ export async function savePaduvadaToFirestore(paduvada: any) {
     return true;
   } catch (err: any) {
     console.error('Error saving paduvada to Firestore:', err?.message || err);
+    return false;
+  }
+}
+
+export async function deletePaduvadaFromFirestore(aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+
+  try {
+    let deletedAny = false;
+    if (id && !String(id).startsWith('db-') && !String(id).startsWith('sheet-')) {
+      await deleteDoc(doc(db, 'paduvada', String(id)));
+      deletedAny = true;
+    }
+
+    const targetAClass = String(aClass || '').trim().toLowerCase();
+    const targetDisb = String(currentDisbNo || '').trim();
+    const targetDisbNum = parseInt(targetDisb, 10);
+    const targetCrop = String(crop || '').trim().toLowerCase();
+
+    if (targetAClass || id) {
+      const snapshot = await getDocs(collection(db, 'paduvada'));
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        const idMatches = Boolean(id && (docSnap.id === id || d.id === id));
+        const rowAClass = String(d.aClass || d.memberNo || '').trim().toLowerCase();
+        const rowDisb = String(d.currentDisbNo || '').trim();
+        const rowDisbNum = parseInt(rowDisb, 10);
+        const rowCrop = String(d.crop || '').trim().toLowerCase();
+
+        const disbMatches = !targetDisb || rowDisb === targetDisb || (!isNaN(targetDisbNum) && !isNaN(rowDisbNum) && rowDisbNum === targetDisbNum);
+        const cropMatches = !targetCrop || rowCrop === targetCrop;
+        const keyMatches = Boolean(targetAClass && rowAClass === targetAClass && disbMatches && cropMatches);
+
+        if (idMatches || keyMatches) {
+          batch.delete(doc(db, 'paduvada', docSnap.id));
+          count++;
+        }
+      });
+      if (count > 0) {
+        await batch.commit();
+        deletedAny = true;
+      }
+    }
+
+    return deletedAny;
+  } catch (err: any) {
+    console.error('Error deleting paduvada from Firestore:', err?.message || err);
     return false;
   }
 }
@@ -279,13 +341,15 @@ export async function saveAhPaduvadaToFirestore(paduvada: any) {
   if (!db) return false;
 
   try {
-    const targetAClass = paduvada.aClass || paduvada.memberNo || '';
-    const targetDisbNo = paduvada.currentDisbNo || '';
-    const targetLivestock = (paduvada.livestockType || paduvada.crop || '').replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_');
-    const docId = paduvada.id && !paduvada.id.startsWith('db-ah-') 
-      ? paduvada.id 
-      : (targetAClass && targetDisbNo 
-          ? `ah_pad_${targetDisbNo}_${targetAClass}_${targetLivestock}` 
+    const clean = (v: any) => String(v || '').trim().replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_');
+    const targetAClass = clean(paduvada.aClass || paduvada.memberNo);
+    const targetDisbNo = clean(paduvada.currentDisbNo);
+    const targetLivestock = clean(paduvada.livestockType || paduvada.crop);
+    const existingId = String(paduvada.id || '');
+    const docId = existingId && existingId.startsWith('ah_pad_')
+      ? existingId
+      : (targetAClass && targetDisbNo
+          ? `ah_pad_${targetDisbNo}_${targetAClass}_${targetLivestock || 'ah'}`
           : `ah_pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
 
     const data = {
@@ -302,15 +366,88 @@ export async function saveAhPaduvadaToFirestore(paduvada: any) {
   }
 }
 
-export async function deleteAhPaduvadaFromFirestore(docId: string) {
+export async function deleteAhPaduvadaFromFirestore(aClassOrDocId?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = getFirebaseDb();
   if (!db) return false;
 
   try {
-    await deleteDoc(doc(db, 'ah_paduvada', docId));
-    return true;
+    let deletedAny = false;
+    const explicitId = id || (aClassOrDocId && String(aClassOrDocId).startsWith('ah_pad_') ? aClassOrDocId : '');
+    if (explicitId && !String(explicitId).startsWith('db-ah-') && !String(explicitId).startsWith('sheet-ah-')) {
+      await deleteDoc(doc(db, 'ah_paduvada', String(explicitId)));
+      deletedAny = true;
+    }
+
+    const targetAClass = (!aClassOrDocId || String(aClassOrDocId).startsWith('ah_pad_') || String(aClassOrDocId).startsWith('db-ah-'))
+      ? ''
+      : String(aClassOrDocId).trim().toLowerCase();
+    const targetDisb = String(currentDisbNo || '').trim();
+    const targetDisbNum = parseInt(targetDisb, 10);
+    const targetCrop = String(crop || '').trim().toLowerCase();
+
+    if (targetAClass || explicitId || id) {
+      const snapshot = await getDocs(collection(db, 'ah_paduvada'));
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        const idMatches = Boolean((explicitId && (docSnap.id === explicitId || d.id === explicitId)) || (id && (docSnap.id === id || d.id === id)));
+        const rowAClass = String(d.aClass || d.memberNo || '').trim().toLowerCase();
+        const rowDisb = String(d.currentDisbNo || '').trim();
+        const rowDisbNum = parseInt(rowDisb, 10);
+        const rowCrop = String(d.livestockType || d.crop || '').trim().toLowerCase();
+
+        const disbMatches = !targetDisb || rowDisb === targetDisb || (!isNaN(targetDisbNum) && !isNaN(rowDisbNum) && rowDisbNum === targetDisbNum);
+        const cropMatches = !targetCrop || rowCrop === targetCrop;
+        const keyMatches = Boolean(targetAClass && rowAClass === targetAClass && disbMatches && cropMatches);
+
+        if (idMatches || keyMatches) {
+          batch.delete(doc(db, 'ah_paduvada', docSnap.id));
+          count++;
+        }
+      });
+      if (count > 0) {
+        await batch.commit();
+        deletedAny = true;
+      }
+    }
+
+    return deletedAny;
   } catch (err: any) {
     console.error('Error deleting AH paduvada from Firestore:', err?.message || err);
+    return false;
+  }
+}
+
+export async function updateAhBatchResolutionInFirestore(currentDisbNo: string, resolutionDate?: string, resolutionNo?: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+
+  try {
+    const targetDisb = String(currentDisbNo || '').trim();
+    if (!targetDisb) return false;
+    const snapshot = await getDocs(collection(db, 'ah_paduvada'));
+    const batch = writeBatch(db);
+    let count = 0;
+    snapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      const itemDisb = String(d.currentDisbNo || '').trim();
+      const targetNum = parseInt(targetDisb, 10);
+      const itemNum = parseInt(itemDisb, 10);
+      if (itemDisb === targetDisb || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum)) {
+        const updateFields: any = { updatedAt: new Date().toISOString() };
+        if (resolutionDate !== undefined) updateFields.resolutionDate = resolutionDate;
+        if (resolutionNo !== undefined && resolutionNo !== '') updateFields.resolutionNo = resolutionNo;
+        batch.set(doc(db, 'ah_paduvada', docSnap.id), updateFields, { merge: true });
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return true;
+  } catch (err: any) {
+    console.error('Error updating AH batch resolution in Firestore:', err?.message || err);
     return false;
   }
 }

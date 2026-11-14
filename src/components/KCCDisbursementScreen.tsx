@@ -287,14 +287,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           return matches ? { ...item, resolutionNo: newResNo } : item;
         })
       );
-      const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
       fetch('/api/sheets/update-batch-resolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentDisbNo: activeDisbKey,
           resolutionNo: newResNo,
-          spreadsheetId: targetSheetId
+          storageOnly: true
         })
       }).catch(() => {});
     }
@@ -324,7 +323,6 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         })
       );
 
-      const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
       fetch('/api/sheets/update-batch-resolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -332,7 +330,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           currentDisbNo: activeDisbKey,
           resolutionNo,
           resolutionDate: newDate,
-          spreadsheetId: targetSheetId
+          storageOnly: true
         })
       }).catch(() => {});
     }
@@ -420,26 +418,14 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     }
 
     setSearchedDisbNo(activeDisbNo);
-
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-
-    if (!targetSheetId && !targetScriptUrl) {
-      setSheetStatusMsg({
-        type: 'error',
-        text: 'தயவுசெய்து கூகுள் சீட் ஐடி அல்லது Web App URL ஐ "கூகுள் சீட் இணைப்பு" அமைப்புகளில் அமைக்கவும்.'
-      });
-      return;
-    }
-
     setIsFetchingSheet(true);
     setSheetStatusMsg({
       type: 'info',
-      text: `பட்டுவாடா எண் '${activeDisbNo}' அடிப்படையில் கூகுள் சீட்டிலிருந்து தகவல்கள் பெறப்படுகின்றன...`
+      text: `பட்டுவாடா எண் '${activeDisbNo}' அடிப்படையில் சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) தகவல்கள் பெறப்படுகின்றன...`
     });
 
     try {
-      const url = `/api/sheets/get-paduvada?spreadsheetId=${encodeURIComponent(targetSheetId)}&disbNo=${encodeURIComponent(activeDisbNo)}&webAppUrl=${encodeURIComponent(targetScriptUrl)}`;
+      const url = `/api/sheets/get-paduvada?storageOnly=true&disbNo=${encodeURIComponent(activeDisbNo)}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -505,13 +491,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
             setSheetStatusMsg({
               type: 'success',
-              text: `கூகுள் சீட்டின் 'KCC All Paduvada Members' பகுதியிலிருந்து பட்டுவாடா எண் '${activeDisbNo}' க்கு உரிய ${data.data.length} உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
+              text: `சேமிப்பகத்தில் (Firebase & SQLite DB) இருந்து பட்டுவாடா எண் '${activeDisbNo}' க்கு உரிய ${data.data.length} உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
             });
           } else {
             setAddedItems(data.data);
             setSheetStatusMsg({
               type: 'error',
-              text: `கூகுள் சீட்டில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் யாரும் கிடைக்கவில்லை.`
+              text: `சேமிப்பகத்தில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் யாரும் கிடைக்கவில்லை.`
             });
           }
         }
@@ -522,10 +508,10 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         });
       }
     } catch (err: any) {
-      console.error('Sheet fetch error:', err);
+      console.error('Storage fetch error:', err);
       setSheetStatusMsg({
         type: 'error',
-        text: 'கூகுள் சீட்டிலிருந்து தகவல்களைப் பெறுவதில் பிழை ஏற்பட்டது.'
+        text: 'சேமிப்பகத்திலிருந்து தகவல்களைப் பெறுவதில் பிழை ஏற்பட்டது.'
       });
     } finally {
       setIsFetchingSheet(false);
@@ -600,14 +586,10 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     }
   };
 
-  // Fetch highest disbursement number from Google Sheet
+  // Fetch highest disbursement number and records from Storage (Firebase & SQLite DB)
   const fetchLastDisbNo = async () => {
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-    if (!targetSheetId && !targetScriptUrl) return;
-
     try {
-      const url = `/api/sheets/get-paduvada?spreadsheetId=${encodeURIComponent(targetSheetId)}&webAppUrl=${encodeURIComponent(targetScriptUrl)}&disbNo=`;
+      const url = `/api/sheets/get-paduvada?storageOnly=true&disbNo=`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -633,12 +615,10 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     }
   };
 
-  // Initial load from Google Sheet
+  // Initial load from Storage (Firebase & SQLite DB)
   useEffect(() => {
     fetchLastDisbNo();
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-    if ((targetSheetId || targetScriptUrl) && filterDisbNo.trim() !== '') {
+    if (filterDisbNo.trim() !== '') {
       handleSearchByDisbNo(filterDisbNo);
     }
   }, []);
@@ -3654,55 +3634,51 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       addedAt: new Date().toLocaleString('ta-IN')
     };
 
-    // Save/Append or Update in Google Sheets tab 'KCC All Paduvada Members'
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-
-    if (targetSheetId || targetScriptUrl) {
-      setIsSubmittingToSheet(true);
-      try {
-        const endpoint = editingItem ? '/api/sheets/update-paduvada' : '/api/sheets/add-paduvada';
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            spreadsheetId: targetSheetId,
-            webAppUrl: targetScriptUrl,
-            paduvadaData,
-            rowIndex: editingItem?.rowIndex,
-            aClass: selectedMember.aClass || selectedMember.memberNo,
-            currentDisbNo,
-            crop: effectiveCrop,
+    // Save/Append or Update directly in Firebase & SQLite Storage (No Google Sheets)
+    setIsSubmittingToSheet(true);
+    try {
+      const endpoint = editingItem ? '/api/sheets/update-paduvada' : '/api/sheets/add-paduvada';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storageOnly: true,
+          paduvadaData: {
+            ...paduvadaData,
             id: editingItem?.id
-          })
+          },
+          rowIndex: editingItem?.rowIndex,
+          aClass: selectedMember.aClass || selectedMember.memberNo,
+          currentDisbNo,
+          crop: effectiveCrop,
+          id: editingItem?.id
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        const actionWord = editingItem ? 'திருத்தப்பட்டது' : 'சேமிக்கப்பட்டது';
+        setSuccessMsg(`${selectedMember.name} (A Class: ${newItem.aClass}) தகவல்கள் சேமிப்பகத்தில் (Firebase & SQLite DB) வெற்றியுடன் ${actionWord}!`);
+        setSheetStatusMsg({
+          type: 'success',
+          text: `சேமிப்பகத்தில் (Firebase & SQLite DB) தகவல் ${actionWord}!`
         });
-        const result = await response.json();
-        if (result.success) {
-          const actionWord = editingItem ? 'திருத்தப்பட்டது' : 'பதிவானது';
-          setSuccessMsg(`${selectedMember.name} (A Class: ${newItem.aClass}) தகவல்கள் பட்டியலிலும், கூகுள் சீட்டின் 'KCC All Paduvada Members' பகுதியிலும் வெற்றியுடன் ${actionWord}!`);
-          setSheetStatusMsg({
-            type: 'success',
-            text: `'KCC All Paduvada Members' கூகுள் சீட்டில் தகவல் ${actionWord}!`
-          });
-        } else {
-          setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது (கூகுள் சீட்: ${result.error || ''})`);
-          setSheetStatusMsg({
-            type: 'error',
-            text: result.details || result.error || 'கூகுள் சீட்டில் தகவலைப் பதிவிடுவதில் பிழை.'
-          });
-        }
-      } catch (err: any) {
-        console.error('Sheet submission error:', err);
-        setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது.`);
+        fetchLastDisbNo();
+      } else {
+        setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது (${result.error || ''})`);
         setSheetStatusMsg({
           type: 'error',
-          text: 'கூகுள் சீட் சேவையக இணைப்பு பிழை.'
+          text: result.details || result.error || 'சேமிப்பகத்தில் தகவலைப் பதிவிடுவதில் பிழை.'
         });
-      } finally {
-        setIsSubmittingToSheet(false);
       }
-    } else {
-      setSuccessMsg(`${selectedMember.name} (A Class: ${newItem.aClass}) பட்டியலில் சேர்க்கப்பட்டது! (கூகுள் சீட் தானியங்கி சேமிப்பிற்கு இடது மெனுவில் 'கூகுள் சீட் இணைப்பு' பகுதியில் ஐடி அமைக்கலாம்)`);
+    } catch (err: any) {
+      console.error('Storage submission error:', err);
+      setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது.`);
+      setSheetStatusMsg({
+        type: 'error',
+        text: 'சேமிப்பக சேவையக இணைப்பு பிழை.'
+      });
+    } finally {
+      setIsSubmittingToSheet(false);
     }
 
     setTimeout(() => setSuccessMsg(''), 5000);
@@ -3733,7 +3709,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     setItemToDelete(item);
   };
 
-  // Confirmed Delete Member Handler (Removes locally and from Google Sheet)
+  // Confirmed Delete Member Handler (Removes locally and from Firebase & SQLite Storage)
   const confirmDeleteProcess = async () => {
     if (!itemToDelete) return;
     const item = itemToDelete;
@@ -3741,44 +3717,36 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
     setAddedItems((prev) => prev.filter((i) => i.id !== item.id));
 
-    const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
-    const targetScriptUrl = localStorage.getItem('tu3_paccs_script_url') || '';
-
-    if (targetSheetId || targetScriptUrl) {
-      setIsDeletingSheet(true);
-      try {
-        const response = await fetch('/api/sheets/delete-paduvada', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            spreadsheetId: targetSheetId,
-            webAppUrl: targetScriptUrl,
-            aClass: item.aClass,
-            currentDisbNo: item.currentDisbNo || searchedDisbNo || filterDisbNo,
-            rowIndex: item.rowIndex,
-            crop: item.crop,
-            id: item.id
-          })
+    setIsDeletingSheet(true);
+    try {
+      const response = await fetch('/api/sheets/delete-paduvada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storageOnly: true,
+          aClass: item.aClass,
+          currentDisbNo: item.currentDisbNo || searchedDisbNo || filterDisbNo,
+          rowIndex: item.rowIndex,
+          crop: item.crop,
+          id: item.id
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        setSuccessMsg(`${item.name} சேமிப்பகத்திலிருந்தும் (Firebase & SQLite DB) பட்டியலிலிருந்தும் வெற்றியுடன் நீக்கப்பட்டார்.`);
+        setSheetStatusMsg({
+          type: 'success',
+          text: `சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) நபர் வெற்றியுடன் நீக்கப்பட்டார்!`
         });
-        const result = await response.json();
-        if (result.success) {
-          setSuccessMsg(`${item.name} பட்டியலிலிருந்தும் 'KCC All Paduvada Members' கூகுள் சீட்டிலிருந்தும் வெற்றியுடன் நீக்கப்பட்டார்.`);
-          setSheetStatusMsg({
-            type: 'success',
-            text: `'KCC All Paduvada Members' கூகுள் சீட்டிலிருந்தும் நபர் வெற்றியுடன் நீக்கப்பட்டார்!`
-          });
-          fetchLastDisbNo();
-        } else {
-          setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார் (கூகுள் சீட்: ${result.error || ''})`);
-        }
-      } catch (err) {
-        console.error('Delete sheet error:', err);
-        setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார்.`);
-      } finally {
-        setIsDeletingSheet(false);
+        fetchLastDisbNo();
+      } else {
+        setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார் (${result.error || ''})`);
       }
-    } else {
-      setSuccessMsg(`${item.name} பட்டியலிலிருந்து நீக்கப்பட்டார்.`);
+    } catch (err) {
+      console.error('Delete storage error:', err);
+      setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார்.`);
+    } finally {
+      setIsDeletingSheet(false);
     }
 
     setTimeout(() => setSuccessMsg(''), 4000);
@@ -5083,7 +5051,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 {itemToDelete.name}
               </p>
               <p className="leading-relaxed">
-                இந்த உறுப்பினரை பட்டியலிலிருந்தும், கூகுள் சீட்டிலிருந்தும் ('KCC All Paduvada Members') உறுதியாக நீக்க விரும்புகிறீர்களா?
+                இந்த உறுப்பினரை பட்டியலிலிருந்தும், சேமிப்பகத்திலிருந்தும் (Firebase & SQLite DB) உறுதியாக நீக்க விரும்புகிறீர்களா?
               </p>
             </div>
 

@@ -306,6 +306,25 @@ export async function getDb(): Promise<Database> {
     );
   `);
 
+    // Safe column migration for paduvada table
+    try {
+      const colsRes = dbInstance.exec("PRAGMA table_info(paduvada)");
+      const existingCols = new Set<string>(
+        (colsRes[0]?.values || []).map((row: any[]) => String(row[1] || ''))
+      );
+      if (!existingCols.has('financial_year')) {
+        dbInstance.run("ALTER TABLE paduvada ADD COLUMN financial_year TEXT DEFAULT ''");
+      }
+      if (!existingCols.has('officer_designation')) {
+        dbInstance.run("ALTER TABLE paduvada ADD COLUMN officer_designation TEXT DEFAULT ''");
+      }
+      if (!existingCols.has('officer_name')) {
+        dbInstance.run("ALTER TABLE paduvada ADD COLUMN officer_name TEXT DEFAULT ''");
+      }
+    } catch (migErr) {
+      console.warn('SQLite paduvada column migration notice:', migErr);
+    }
+
     // Immediate safe save after schema init
     flushSaveDbSync();
   } catch (err) {
