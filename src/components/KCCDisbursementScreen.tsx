@@ -2282,7 +2282,41 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           distinctMembersMap.set(aKey, item);
         }
       });
-      const distinctMembersCount = distinctMembersMap.size || printItems.length;
+      const distinctMembersList = distinctMembersMap.size > 0 ? Array.from(distinctMembersMap.values()) : printItems;
+      const distinctMembersCount = distinctMembersList.length;
+
+      let vennilaiRepaidCount = 0;
+      let vennilaiNewCount = 0;
+      let thodarchiRepaidCount = 0;
+      let thodarchiNewCount = 0;
+
+      distinctMembersList.forEach(item => {
+        const mt = String(item.mortgageType || '').trim();
+        const ms = String((item as any).memberStatus || '').trim();
+        const pl = String(item.prevLoanNo || '').trim();
+
+        const isContinuousMortgage = mt.includes('தொடர்ச்சி') || mt.includes('அடமான');
+        const isNewByMortgage = mt.includes('புதிய');
+        const isRepaidByMortgage = mt.includes('முன்கடன்') || mt.includes('முன் கடன்') || mt.includes('செலுத்திய');
+        const isNewByStatus = ms.includes('புதிய') || pl.includes('புதிய') || Boolean((item as any).isNew) || (item as any).memberType === 'new';
+
+        const isNew = isNewByMortgage ? true : (isRepaidByMortgage ? false : isNewByStatus);
+
+        if (isContinuousMortgage) {
+          if (isNew) {
+            thodarchiNewCount += 1;
+          } else {
+            thodarchiRepaidCount += 1;
+          }
+        } else {
+          if (isNew) {
+            vennilaiNewCount += 1;
+          } else {
+            vennilaiRepaidCount += 1;
+          }
+        }
+      });
+
       const totalLoanSum = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
       const totalAcresSum = printItems.reduce((acc, item) => acc + (parseFloat(item.acres) || 0), 0);
       const totalLoanWords = numberToTamilWords(totalLoanSum);
@@ -2457,10 +2491,10 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <tbody>
                   <tr>
                     <td style="border: 1.5px solid #000000; padding: 6px 8px; text-align: justify; vertical-align: top;">
-                      &nbsp;&nbsp;&nbsp;&nbsp;நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்டமத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ளும் விசயம்.
+                      &nbsp;&nbsp;&nbsp;&nbsp;நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெந்நிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய ……<strong>${vennilaiRepaidCount}</strong>…… நபருக்கும், வெந்நிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……<strong>${vennilaiNewCount}</strong>…… நபருக்கும், தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய ……<strong>${thodarchiRepaidCount}</strong>…… நபர்களுக்கும், தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர் ……<strong>${thodarchiNewCount}</strong>…… நபருக்கும் ஆகமொத்தம் ……<strong>${distinctMembersCount}</strong>…… உறுப்பினர்களுக்கும் மதுரை மாவட்டமத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ளும் விசயம்.
                     </td>
                     <td style="border: 1.5px solid #000000; padding: 6px 8px; text-align: justify; vertical-align: top;">
-                      &nbsp;&nbsp;&nbsp;&nbsp;அவ்வாறே நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய……<strong>${distinctMembersCount}</strong>…….நபருக்கும் வெண்ணிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……..……….. தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய…………நபர்களுக்கும் தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர்-------ஆகமொத்தம்……<strong>${distinctMembersCount}</strong>….. உறுப்பினர்களுக்கும் மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ள தீர்மானிக்கலாயிற்று.
+                      &nbsp;&nbsp;&nbsp;&nbsp;அவ்வாறே நமது சங்கத்தின் ${effectiveFinancialYear}ம் ஆண்டிற்கு கடன் கோரும் கீழ்கண்ட உறுப்பினர்களுக்கு KCC1 விவசாய வெந்நிலை ஜாமீன் கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய ……<strong>${vennilaiRepaidCount}</strong>…… நபருக்கும், வெந்நிலை ஜாமீன் கடன் பத்திரம் மூலம் புதிய நபர் ……<strong>${vennilaiNewCount}</strong>…… நபருக்கும், தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் முன் கடன் திருப்பி செலுத்திய ……<strong>${thodarchiRepaidCount}</strong>…… நபர்களுக்கும், தொடர்ச்சி அடமான கடன் பத்திரம் மூலம் புதிய உறுப்பினர் ……<strong>${thodarchiNewCount}</strong>…… நபருக்கும் ஆகமொத்தம் ……<strong>${distinctMembersCount}</strong>…… உறுப்பினர்களுக்கும் மதுரை மாவட்டமத்திய கூட்டுறவு வங்கியின் தலைமையகம் மூலம் அனுமதி உத்தரவு RCL <strong>${effectiveRclFormatted}</strong> Dt.<strong>${formattedRclDate}</strong> இருந்து விவசாய பயிர்களுக்கு நடப்பு ஆண்டிற்கு அனுமதித்த தொகை ரூ.<strong>${sanctionedLimitFormatted}</strong>/- கீழ்க்கண்ட விபரப்படி ரூ.<strong>${totalLoanSum}</strong>/-க்கு (ரூபாய் <strong>${totalLoanWords}</strong> மட்டும்) பட்டுவாடா வழங்குமாறு மதுரை மாவட்ட மத்திய கூட்டுறவு வங்கி தேவாரம் கிளை மேலாளரை கேட்டுக் கொள்ள தீர்மானிக்கலாயிற்று.
                     </td>
                   </tr>
                 </tbody>
@@ -3476,7 +3510,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     setCategory(String(item.caste || item.category || '-'));
     setFarmerClass(String(item.farmerClass || 'MF'));
     setDisability(String(item.disability || '0'));
-    setMortgageType(String(item.mortgageType || 'வெற்றிநிலை ஜாமீன் மூலம்'));
+    setMortgageType(String(item.mortgageType || 'வெந்நிலை ஜாமீன் மூலம் முன்கடன் செலுத்தியவர்'));
     setGuaranteeType(String(item.guaranteeType || 'நபர் ஜாமீன்'));
 
     setPassbookFee(String(item.passbookFee ?? '0'));
@@ -4515,7 +4549,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
               </div>
 
               <div>
-                <label className="block text-stone-700 font-bold mb-1">வெண்ணிலை / தொடர்ச்சி அடமானம்</label>
+                <label className="block text-stone-700 font-bold mb-1">வெந்நிலை / தொடர்ச்சி அடமானம்</label>
                 <select
                   value={mortgageType}
                   onChange={(e) => setMortgageType(e.target.value)}
