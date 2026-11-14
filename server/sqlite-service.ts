@@ -330,6 +330,19 @@ export async function updatePaduvadaInDb(p: any, aClass?: string, currentDisbNo?
   ]);
 }
 
+export async function updateBatchResolutionInDb(currentDisbNo: string, resolutionDate?: string, resolutionNo?: string) {
+  const db = await getDb();
+  const targetDisb = String(currentDisbNo || '').trim();
+  if (!targetDisb) return;
+  if (resolutionDate !== undefined && resolutionNo !== undefined && resolutionNo !== '') {
+    runQuery(db, `UPDATE paduvada SET resolution_date=?, resolution_no=? WHERE TRIM(current_disb_no)=?`, [resolutionDate, resolutionNo, targetDisb]);
+  } else if (resolutionDate !== undefined) {
+    runQuery(db, `UPDATE paduvada SET resolution_date=? WHERE TRIM(current_disb_no)=?`, [resolutionDate, targetDisb]);
+  } else if (resolutionNo !== undefined && resolutionNo !== '') {
+    runQuery(db, `UPDATE paduvada SET resolution_no=? WHERE TRIM(current_disb_no)=?`, [resolutionNo, targetDisb]);
+  }
+}
+
 export async function deletePaduvadaFromDb(aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
   const db = await getDb();
   if (id) {

@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LoanMember, 
-  KCCDisbursementRecord, 
-  Part1RCLDetails 
-} from '../types';
+import { LoanMember, KCCDisbursementRecord, Part1RCLDetails } from '../types';
+import { INITIAL_LOAN_MEMBERS } from '../data/initialData';
 import { formatMobile, formatRationCard, formatMDCC, formatAadhar, formatIndianCurrency, formatIndianInputNumber, formatDateDDMMYYYY, extractSpreadsheetId, formatAcres } from '../utils/formatters';
 import { TamilDateInput } from './TamilDateInput';
 import { 
@@ -136,8 +133,21 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
   const [officerDesignation, setOfficerDesignation] = useState<string>('செயலாட்சியர்');
   const [officerName, setOfficerName] = useState<string>('திரு.அ.சீனிவாசப்பெருமாள், கூட்டுறவு சார்பதிவாளர் / செயலாட்சியர்');
 
+  const getSavedResDateForDisb = (disbNo: string, fallback = '20-05-2026'): string => {
+    try {
+      const datesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+      const trimmed = String(disbNo || '').trim();
+      if (trimmed && datesMap[trimmed]) return datesMap[trimmed];
+      return localStorage.getItem('tu3_paccs_kcc_res_date_global') || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   // Section 2: Disbursement Details
-  const [currentDisbNo, setCurrentDisbNo] = useState<string>('2');
+  const [currentDisbNo, setCurrentDisbNo] = useState<string>(() => {
+    return localStorage.getItem('tu3_paccs_kcc_current_disb_no') || '2';
+  });
 
   const toIsoDate = (d: string): string => {
     if (!d) return '';
@@ -172,8 +182,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
   };
 
   // Section 3: Resolution Details
-  const [resolutionNo, setResolutionNo] = useState<string>('1');
-  const [resolutionDate, setResolutionDate] = useState<string>('20-05-2026');
+  const [resolutionNo, setResolutionNo] = useState<string>(() => {
+    return localStorage.getItem('tu3_paccs_kcc_res_no') || '1';
+  });
+  const [resolutionDate, setResolutionDate] = useState<string>(() => {
+    const initDisb = localStorage.getItem('tu3_paccs_kcc_current_disb_no') || '2';
+    return getSavedResDateForDisb(initDisb, '20-05-2026');
+  });
 
   // Section 4: Basic Details / Member Search
   const [searchAClassInput, setSearchAClassInput] = useState<string>('');
@@ -211,13 +226,117 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
   const [prevLoanAmount, setPrevLoanAmount] = useState<string>('0');
 
   // Added Items List State
-  const [addedItems, setAddedItems] = useState<any[]>([]);
+  const [addedItems, setAddedItems] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('tu3_paccs_kcc_added_items');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [successMsg, setSuccessMsg] = useState<string>('');
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [viewingItem, setViewingItem] = useState<any | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any | null>(null);
   const [isDeletingSheet, setIsDeletingSheet] = useState<boolean>(false);
   const [isFetchingSheet, setIsFetchingSheet] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tu3_paccs_kcc_added_items', JSON.stringify(addedItems));
+    } catch {}
+  }, [addedItems]);
+
+  const handleCurrentDisbNoChange = (newDisbNo: string) => {
+    setCurrentDisbNo(newDisbNo);
+    try {
+      localStorage.setItem('tu3_paccs_kcc_current_disb_no', newDisbNo);
+      const trimmed = newDisbNo.trim();
+      if (trimmed) {
+        const datesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+        if (datesMap[trimmed]) {
+          setResolutionDate(datesMap[trimmed]);
+        } else {
+          const targetNum = parseInt(trimmed, 10);
+          const itemMatch = addedItems.find((item) => {
+            const itemDisb = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+            const itemNum = parseInt(itemDisb, 10);
+            return (itemDisb === trimmed || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum)) && item.resolutionDate && String(item.resolutionDate).trim() !== '';
+          });
+          if (itemMatch?.resolutionDate) {
+            setResolutionDate(String(itemMatch.resolutionDate));
+          }
+        }
+      }
+    } catch {}
+  };
+
+  const handleResolutionNoChange = (newResNo: string) => {
+    setResolutionNo(newResNo);
+    try {
+      localStorage.setItem('tu3_paccs_kcc_res_no', newResNo);
+    } catch {}
+    const activeDisbKey = (currentDisbNo || '').trim();
+    if (activeDisbKey) {
+      const targetNum = parseInt(activeDisbKey, 10);
+      setAddedItems((prev) =>
+        prev.map((item) => {
+          const itemDisb = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+          const itemNum = parseInt(itemDisb, 10);
+          const matches = itemDisb === activeDisbKey || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum);
+          return matches ? { ...item, resolutionNo: newResNo } : item;
+        })
+      );
+      const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
+      fetch('/api/sheets/update-batch-resolution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentDisbNo: activeDisbKey,
+          resolutionNo: newResNo,
+          spreadsheetId: targetSheetId
+        })
+      }).catch(() => {});
+    }
+  };
+
+  const handleResolutionDateChange = (newDate: string) => {
+    setResolutionDate(newDate);
+    if (!newDate) return;
+    const activeDisbKey = (currentDisbNo || '').trim();
+    try {
+      const datesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+      if (activeDisbKey) {
+        datesMap[activeDisbKey] = newDate;
+      }
+      localStorage.setItem('tu3_paccs_kcc_res_dates', JSON.stringify(datesMap));
+      localStorage.setItem('tu3_paccs_kcc_res_date_global', newDate);
+    } catch {}
+
+    if (activeDisbKey) {
+      const targetNum = parseInt(activeDisbKey, 10);
+      setAddedItems((prev) =>
+        prev.map((item) => {
+          const itemDisb = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+          const itemNum = parseInt(itemDisb, 10);
+          const matches = itemDisb === activeDisbKey || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum);
+          return matches ? { ...item, resolutionDate: newDate } : item;
+        })
+      );
+
+      const targetSheetId = extractSpreadsheetId(spreadsheetId || sheetInput || localStorage.getItem('tu3_paccs_sheet_id') || '');
+      fetch('/api/sheets/update-batch-resolution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentDisbNo: activeDisbKey,
+          resolutionNo,
+          resolutionDate: newDate,
+          spreadsheetId: targetSheetId
+        })
+      }).catch(() => {});
+    }
+  };
 
   // KCC Bank Sheet state for Form 7
   const [bankRows, setBankRows] = useState<any[]>([]);
@@ -329,7 +448,11 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           setLastDisbNo(data.maxDisbNo);
         }
         if (Array.isArray(data.data)) {
-          setAddedItems(data.data);
+          let savedDatesMap: Record<string, string> = {};
+          try {
+            savedDatesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+          } catch {}
+
           if (data.data.length > 0) {
             const first = data.data[0];
             const rclNo = data.data.find((i: any) => i.rclNumber && String(i.rclNumber).trim() !== '')?.rclNumber || first.rclNumber;
@@ -341,20 +464,51 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             const sancAmt = data.data.find((i: any) => i.sanctionedAmount && String(i.sanctionedAmount).trim() !== '')?.sanctionedAmount || first.sanctionedAmount;
             if (sancAmt) setSanctionedAmount(sancAmt);
 
-            const curDisb = data.data.find((i: any) => i.currentDisbNo && String(i.currentDisbNo).trim() !== '')?.currentDisbNo || first.currentDisbNo || activeDisbNo;
-            if (curDisb) setCurrentDisbNo(curDisb);
+            const curDisb = String(data.data.find((i: any) => i.currentDisbNo && String(i.currentDisbNo).trim() !== '')?.currentDisbNo || first.currentDisbNo || activeDisbNo).trim();
+            if (curDisb) {
+              setCurrentDisbNo(curDisb);
+              try {
+                localStorage.setItem('tu3_paccs_kcc_current_disb_no', curDisb);
+              } catch {}
+            }
 
             const resNo = data.data.find((i: any) => i.resolutionNo && String(i.resolutionNo).trim() !== '')?.resolutionNo || first.resolutionNo;
-            if (resNo) setResolutionNo(resNo);
+            if (resNo) {
+              setResolutionNo(resNo);
+              try {
+                localStorage.setItem('tu3_paccs_kcc_res_no', resNo);
+              } catch {}
+            }
 
-            const resDate = data.data.find((i: any) => i.resolutionDate && String(i.resolutionDate).trim() !== '')?.resolutionDate || first.resolutionDate;
-            if (resDate) setResolutionDate(resDate);
+            const savedLocalResDate = savedDatesMap[curDisb];
+            const sheetResDate = data.data.find((i: any) => i.resolutionDate && String(i.resolutionDate).trim() !== '')?.resolutionDate || first.resolutionDate;
+            const effectiveBatchDate = savedLocalResDate || sheetResDate || '';
+
+            if (effectiveBatchDate) {
+              setResolutionDate(effectiveBatchDate);
+              if (!savedLocalResDate && curDisb) {
+                savedDatesMap[curDisb] = effectiveBatchDate;
+                try {
+                  localStorage.setItem('tu3_paccs_kcc_res_dates', JSON.stringify(savedDatesMap));
+                } catch {}
+              }
+            }
+
+            const normalizedData = effectiveBatchDate
+              ? data.data.map((row: any) => {
+                  const rowDisb = String(row.currentDisbNo || curDisb).trim();
+                  const dateForRow = savedDatesMap[rowDisb] || (rowDisb === curDisb ? effectiveBatchDate : row.resolutionDate);
+                  return dateForRow ? { ...row, resolutionDate: dateForRow } : row;
+                })
+              : data.data;
+            setAddedItems(normalizedData);
 
             setSheetStatusMsg({
               type: 'success',
               text: `கூகுள் சீட்டின் 'KCC All Paduvada Members' பகுதியிலிருந்து பட்டுவாடா எண் '${activeDisbNo}' க்கு உரிய ${data.data.length} உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
             });
           } else {
+            setAddedItems(data.data);
             setSheetStatusMsg({
               type: 'error',
               text: `கூகுள் சீட்டில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் யாரும் கிடைக்கவில்லை.`
@@ -461,7 +615,17 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           setLastDisbNo(data.maxDisbNo);
         }
         if (Array.isArray(data.data) && data.data.length > 0) {
-          setAddedItems(data.data);
+          let savedDatesMap: Record<string, string> = {};
+          try {
+            savedDatesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+          } catch {}
+          const syncedItems = data.data.map((row: any) => {
+            const rowDisb = String(row.currentDisbNo || '').trim();
+            return (rowDisb && savedDatesMap[rowDisb])
+              ? { ...row, resolutionDate: savedDatesMap[rowDisb] }
+              : row;
+          });
+          setAddedItems(syncedItems);
         }
       }
     } catch (err) {
@@ -478,6 +642,98 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       handleSearchByDisbNo(filterDisbNo);
     }
   }, []);
+
+  const getMemberForItem = (item: any): LoanMember | undefined => {
+    if (!item) return undefined;
+    const aKey = (item.aClass || (item as any).aNo || item.memberNo || '').toString().trim().toLowerCase();
+    const sbKey = (item.sb || '').toString().trim().toLowerCase();
+    const erpKey = (item.erp || '').toString().trim().toLowerCase();
+    const nameKey = (item.name || (item as any).memberName || '').toString().trim().toLowerCase();
+
+    const pool = (members && members.length > 0) ? members : INITIAL_LOAN_MEMBERS;
+
+    if (aKey && aKey !== '-' && aKey !== '0') {
+      const match = pool.find(x => (x.aClass || x.memberNo || '').toString().trim().toLowerCase() === aKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.aClass || x.memberNo || '').toString().trim().toLowerCase() === aKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    if (sbKey && sbKey !== '-' && sbKey !== '0') {
+      const match = pool.find(x => (x.sb || '').toString().trim().toLowerCase() === sbKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.sb || '').toString().trim().toLowerCase() === sbKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    if (erpKey && erpKey !== '-' && erpKey !== '0') {
+      const match = pool.find(x => (x.erp || '').toString().trim().toLowerCase() === erpKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.erp || '').toString().trim().toLowerCase() === erpKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    if (nameKey && nameKey !== '-' && nameKey.length > 2) {
+      const match = pool.find(x => (x.name || '').toString().trim().toLowerCase() === nameKey);
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => (x.name || '').toString().trim().toLowerCase() === nameKey);
+        if (initMatch) return initMatch;
+      }
+    }
+
+    if (nameKey && nameKey !== '-' && nameKey.length > 2) {
+      const match = pool.find(x => {
+        const nm = (x.name || '').toString().trim().toLowerCase();
+        return nm && (nameKey.includes(nm) || nm.includes(nameKey));
+      });
+      if (match) return match;
+      if (pool !== INITIAL_LOAN_MEMBERS) {
+        const initMatch = INITIAL_LOAN_MEMBERS.find(x => {
+          const nm = (x.name || '').toString().trim().toLowerCase();
+          return nm && (nameKey.includes(nm) || nm.includes(nameKey));
+        });
+        if (initMatch) return initMatch;
+      }
+    }
+
+    return undefined;
+  };
+
+  const parseInitialAndName = (item: any) => {
+    const mem = getMemberForItem(item);
+    let ins = (item.ins || (item as any).initial || mem?.ins || '').toString().trim();
+    let nameStr = (item.name || (item as any).memberName || mem?.name || '').toString().trim();
+
+    if (ins && ins !== '-' && ins !== 'undefined' && ins !== 'null') {
+      const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      nameStr = nameStr.replace(new RegExp(`^${escaped}[.\\s]+`, 'i'), '').trim();
+      nameStr = nameStr.replace(new RegExp(`[.\\s]+${escaped}$`, 'i'), '').trim();
+      return { initial: ins, name: nameStr };
+    }
+
+    const leadMatch = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
+    if (leadMatch) {
+      return { initial: leadMatch[1].trim(), name: leadMatch[2].trim() };
+    }
+
+    const trailMatch = nameStr.match(/^(.+?)[.\s]+([A-Za-z\u0B80-\u0BFF]{1,3})$/);
+    if (trailMatch && trailMatch[1].length > 2) {
+      return { initial: trailMatch[2].trim(), name: trailMatch[1].trim() };
+    }
+
+    if (mem?.ins && mem.ins.trim() && mem.ins.trim() !== '-') {
+      return { initial: mem.ins.trim(), name: nameStr };
+    }
+
+    return { initial: (ins && ins !== '-') ? ins : '', name: nameStr };
+  };
 
   const PRINT_FORMS = [
     { id: '1', title: '1. KCC-1 படிவம்' },
@@ -502,31 +758,31 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     }
 
     const activeDisbNo = (searchedDisbNo || filterDisbNo || currentDisbNo || '').trim();
+    const matchesCurrentBatchForPrint = (disbNo: string) => {
+      const target = (disbNo || '').trim();
+      const cur = (currentDisbNo || '').trim();
+      if (!target || !cur) return true;
+      if (target === cur) return true;
+      const tNum = parseInt(target, 10);
+      const cNum = parseInt(cur, 10);
+      return !isNaN(tNum) && !isNaN(cNum) && tNum === cNum;
+    };
+    const resolveBatchResNo = (disbNo: string) => {
+      const curResNo = resolutionNo && resolutionNo.trim();
+      if (matchesCurrentBatchForPrint(disbNo) && curResNo) return curResNo;
+      return printItems.find(i => i.resolutionNo && String(i.resolutionNo).trim() !== '')?.resolutionNo || curResNo || '1';
+    };
+    const resolveBatchResDate = (disbNo: string) => {
+      const curResDate = resolutionDate && resolutionDate.trim();
+      if (matchesCurrentBatchForPrint(disbNo) && curResDate) return curResDate;
+      return printItems.find(i => i.resolutionDate && String(i.resolutionDate).trim() !== '')?.resolutionDate || getSavedResDateForDisb(disbNo, '') || curResDate || '20-05-2026';
+    };
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       window.print();
       return;
     }
-
-    const parseInitialAndName = (item: any) => {
-      let ins = (item.ins || (item as any).initial || '').toString().trim();
-      let nameStr = (item.name || (item as any).memberName || '').toString().trim();
-
-      if (ins && ins !== '-') {
-        const escaped = ins.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`^${escaped}[.\\s]+`, 'i');
-        nameStr = nameStr.replace(regex, '').trim();
-        return { initial: ins, name: nameStr };
-      }
-
-      const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
-      if (match) {
-        return { initial: match[1], name: match[2].trim() };
-      }
-
-      return { initial: (ins && ins !== '-') ? ins : '-', name: nameStr };
-    };
 
     // SPECIAL HANDLING FOR 7. KCC BANK SHEET (வங்கி அறிக்கை)
     if (formTitle.includes('Bank Sheet') || formTitle.includes('வங்கி அறிக்கை') || formTitle.includes('KCC Bank')) {
@@ -573,7 +829,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       let runningH = 0;
       let runningI = 0;
 
-      const targetTime = parseRowDateVal(resolutionDate);
+      const bankResDateStr = resolveBatchResDate(activeDisbNo);
+      const targetTime = parseRowDateVal(bankResDateStr);
 
       const annotatedRows = sortedBankRows.map((row, idx) => {
         const rowDate = parseRowDateVal(row.date);
@@ -1056,7 +1313,9 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const rightTotal = totalCurrentAccount + totalKcc6Val + totalInsVal + totalCropInsurance + totalNetVal + totalThriftOther;
       const finalRightTotal = rightTotal > 0 ? rightTotal : totalDisbAmount;
 
-      const formattedResDate = formatDateDDMMYYYY(resolutionDate) || '20.05.2026';
+      const effectiveResNo = resolveBatchResNo(activeDisbNo);
+      const rawResDate = resolveBatchResDate(activeDisbNo);
+      const formattedResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
 
       printWindow.document.write(`
         <!DOCTYPE html>
@@ -1149,7 +1408,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
             <!-- Paragraph 1 -->
             <div style="text-align: justify; line-height: 1.85; font-size: 12.5px; margin-bottom: 20px;">
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;T.U.3 தேவாரம் தொடக்கவேளாண்மை கூட்டுறவுகடன் சங்கத்திற்கு மத்திய வங்கியிலிருந்து சாங்ஷனாகி வரவான RCL-${rclNumber || '107/25-26/P1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'} படி KCC பயிர் கடனுக்குரூ.${sanctionLakhs}.லட்சம்/-சாங்ஷன் பெறப்பட்டதில் சங்கநிர்வாகக்குழு தீர்மானஎண்: ${resolutionNo || '1'} நாள்:${formattedResDate} ன் படி &nbsp;<span class="amount-box" style="min-width: 32px;">${printItems.length}</span>&nbsp; நபருக்கு KCC காரியத்திற்கு &nbsp;<span class="amount-box">₹ ${formattedDisbTotal}</span>&nbsp; காசோலை எண் ........................ மூலம் கடன் கோரி தீர்மானம் இயற்றியுள்ளது.
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;T.U.3 தேவாரம் தொடக்கவேளாண்மை கூட்டுறவுகடன் சங்கத்திற்கு மத்திய வங்கியிலிருந்து சாங்ஷனாகி வரவான RCL-${rclNumber || '107/25-26/P1'} Dt:${formatDateDDMMYYYY(rclDate) || '15.04.2026'} படி KCC பயிர் கடனுக்குரூ.${sanctionLakhs}.லட்சம்/-சாங்ஷன் பெறப்பட்டதில் சங்கநிர்வாகக்குழு தீர்மானஎண்: ${effectiveResNo} நாள்:${formattedResDate} ன் படி &nbsp;<span class="amount-box" style="min-width: 32px;">${printItems.length}</span>&nbsp; நபருக்கு KCC காரியத்திற்கு &nbsp;<span class="amount-box">₹ ${formattedDisbTotal}</span>&nbsp; காசோலை எண் ........................ மூலம் கடன் கோரி தீர்மானம் இயற்றியுள்ளது.
             </div>
 
             <!-- Paragraph 2 -->
@@ -1540,8 +1799,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     // SPECIAL HANDLING FOR 4. INSURANCE (காப்பீடு விபத்துக் காப்பீடு)
     if (formTitle.includes('காப்பீடு') || formTitle.includes('Insurance')) {
       const activeDisbNumber = (searchedDisbNo || filterDisbNo || currentDisbNo || '1').trim();
-      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
-      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '05-09-2026';
+      const effectiveResNo = resolveBatchResNo(activeDisbNumber);
+      const rawResDate = resolveBatchResDate(activeDisbNumber);
       const effectiveResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
       const effectiveRclNo = rclNumber || '107/25-26/P1';
       const effectiveRclDate = formatDateDDMMYYYY(rclDate) || '15.04.2026';
@@ -1589,6 +1848,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
           existing.totalIns += insVal;
+          if ((!existing.item.ins || existing.item.ins === '-') && i.ins && i.ins !== '-') existing.item.ins = i.ins;
           if (!existing.item.careOf && i.careOf) existing.item.careOf = i.careOf;
           if (!existing.item.rationCard && i.rationCard) existing.item.rationCard = i.rationCard;
           if (!existing.item.namini && i.namini) existing.item.namini = i.namini;
@@ -1837,8 +2097,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const distinctMembersCount = distinctMembersMap.size || printItems.length;
       const totalLoanSum = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
 
-      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
-      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '27.05.2026';
+      const effectiveResNo = resolveBatchResNo(activeDisbNo);
+      const rawResDate = resolveBatchResDate(activeDisbNo);
       const formattedResDate = formatDateDDMMYYYY(rawResDate) || rawResDate;
 
       const rawRclNo = rclNumber || printItems.find(i => i.rclNumber)?.rclNumber || '107/25-26/P1';
@@ -2004,10 +2264,10 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const totalAcresSum = printItems.reduce((acc, item) => acc + (parseFloat(item.acres) || 0), 0);
       const totalLoanWords = numberToTamilWords(totalLoanSum);
 
-      const effectiveResNo = resolutionNo || printItems.find(i => i.resolutionNo)?.resolutionNo || '1';
-      const rawResDate = resolutionDate || printItems.find(i => i.resolutionDate)?.resolutionDate || '27.05.2026';
+      const effectiveResNo = resolveBatchResNo(activeDisbNo);
+      const rawResDate = resolveBatchResDate(activeDisbNo);
       
-      let resDay = '27';
+      let resDay = '20';
       let resMonth = 'மே';
       let resYear = '2026';
       const tamilMonths = ['ஜனவரி', 'பிப்ரவரி', 'மார்ச்', 'ஏப்ரல்', 'மே', 'ஜூன்', 'ஜூலை', 'ஆகஸ்ட்', 'செப்டம்பர்', 'அக்டோபர்', 'நவம்பர்', 'டிசம்பர்'];
@@ -2040,24 +2300,6 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const rawRclDate = rclDate || printItems.find(i => i.rclDate)?.rclDate || '15-04-2026';
       const formattedRclDate = formatDateDDMMYYYY(rawRclDate) ? formatDateDDMMYYYY(rawRclDate).replace(/\./g, '-') : rawRclDate;
       const sanctionedLimitFormatted = (sanctionedAmount || printItems[0]?.creditLimit || '30000000').toString().replace(/[^0-9]/g, '') || '30000000';
-
-      const parseInitialAndName = (item: any) => {
-        let ins = (item.ins || (item as any).initial || '').toString().trim();
-        let nameStr = (item.name || '').toString().trim();
-
-        if (ins && ins !== '-') {
-          const regex = new RegExp(`^${ins}[.\\s]+`, 'i');
-          nameStr = nameStr.replace(regex, '').trim();
-          return { initial: ins, name: nameStr };
-        }
-
-        const match = nameStr.match(/^([A-Za-z\u0B80-\u0BFF]{1,3})[.\s]+(.+)$/);
-        if (match) {
-          return { initial: match[1], name: match[2].trim() };
-        }
-
-        return { initial: '', name: nameStr };
-      };
 
       const tableRowsHtml = printItems.map((item, idx) => {
         const loanAmt = getItemLoanAmount(item);
@@ -2675,6 +2917,9 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     const pageSizeCss = 'size: legal landscape; margin: 5mm;';
     const printButtonLabel = '🖨️ அச்சிடு (Print Legal Landscape)';
     const bannerWindowLabel = `📄 ${formTitle} - அச்சு சாளரம் (Legal Sheet Landscape)`;
+    const effectiveCommonResNo = resolveBatchResNo(activeDisbNo);
+    const rawCommonResDate = resolveBatchResDate(activeDisbNo);
+    const effectiveCommonResDate = formatDateDDMMYYYY(rawCommonResDate) || rawCommonResDate;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -2733,11 +2978,11 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
           <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
             <tr>
               <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
-              <td style="width: 8%; font-family: monospace;">1</td>
+              <td style="width: 8%; font-family: monospace;">${effectiveCommonResNo}</td>
               <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
-              <td style="width: 18%; font-family: monospace;">20-05-2026</td>
+              <td style="width: 18%; font-family: monospace;">${effectiveCommonResDate}</td>
               <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
-              <td style="width: 8%; font-family: monospace;">${filterDisbNo || currentDisbNo || '1'}</td>
+              <td style="width: 8%; font-family: monospace;">${activeDisbNo || '1'}</td>
               <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
               <td style="width: 18%; font-family: monospace;"></td>
             </tr>
@@ -2834,6 +3079,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
           existing.totalIns += insVal;
+          if ((!existing.item.ins || existing.item.ins === '-') && item.ins && item.ins !== '-') existing.item.ins = item.ins;
           if (!existing.item.careOf && item.careOf) existing.item.careOf = item.careOf;
           if (!existing.item.rationCard && item.rationCard) existing.item.rationCard = item.rationCard;
           if (!existing.item.namini && item.namini) existing.item.namini = item.namini;
@@ -2856,20 +3102,21 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       }
 
       const headers = [
-        'வ எண்', 'அ எண்', 'SB எண்', 'ERP', 'Ins', 'பெயர்',
+        'வ எண்', 'அ எண்', 'SB எண்', 'ERP', 'Initial', 'பெயர்',
         'தகப்பனார் / கணவர் பெயர்', 'கிராமம்', 'குடும்ப அட்டை எண்',
         'உடலில் உள்ள குறைபாடு', 'நாமினியின் பெயர்', 'உறவு', 'சந்தாத் தொகை'
       ];
       let tot = 0;
       const rows = targetItems.map(({ item, totalIns }, index) => {
         tot += totalIns;
+        const { initial, name: cleanName } = parseInitialAndName(item);
         return [
           index + 1,
           `"${item.aClass || item.aNo || item.memberNo || ''}"`,
           `"${item.sb || ''}"`,
           `"${item.erp || ''}"`,
-          `"${item.ins || '-'}"`,
-          `"${item.name || ''}"`,
+          `"${initial || '-'}"`,
+          `"${cleanName || ''}"`,
           `"${item.careOf || item.fatherOrHusbandName || ''}"`,
           `"${item.village || 'தேவாரம்'}"`,
           `"${item.rationCard || (item as any).ration || ''}"`,
@@ -2895,7 +3142,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     if (formTitle.includes('KCC-2') || formTitle.includes('KCC 2') || formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page')) {
       const isAgreement = formTitle.includes('ஒப்பந்தம்') || formTitle.includes('Signature Page');
       const headers = [
-        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'பெயர்', 'சர்வே எண்', 'பரப்பு', 'பயிர்',
+        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்', 'சர்வே எண்', 'பரப்பு', 'பயிர்',
         'விதை பகுதி', 'ரசாயன உரம்', 'தொழு உரம்', 'பூச்சி மருந்து', 'ரொக்கம்', 'மொத்தம்',
         'CC6', 'புத்தக பாரம்', 'காப்பீடு', 'பங்கு தொகை', 'மொத்த பிடித்தம்', 'நிகர பட்டுவாடா',
         isAgreement ? 'கையொப்பம்' : 'MDCC கணக்கு எண்'
@@ -2936,13 +3183,15 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         const totalDeductionNum = kcc6Num + bookChargeNum + insuranceNum + shareCapitalNum;
         const netDisbursementNum = loanAmt - totalDeductionNum;
         const mdccAccountNo = item.mdcc || item.mdccAccount || item.mdccAccountNo || item.kccAccountNo || item.sb || '-';
+        const { initial, name: cleanName } = parseInitialAndName(item);
 
         return [
           index + 1,
           `"${item.aClass || item.memberNo}"`,
           `"${item.sb || '-'}"`,
           `"${item.erp || '-'}"`,
-          `"${item.name}"`,
+          `"${initial || '-'}"`,
+          `"${cleanName}"`,
           item.surveyNo || '-',
           formatAcres(item.acres),
           `"${item.crop}"`,
@@ -2975,7 +3224,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
     if (formTitle.includes('ஜாபிதா') || formTitle.includes('Jabitha')) {
       const headers = [
-        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'பெயர்', 'சர்வே எண்', 'பரப்பு ஏ.செ', 'பயிர்',
+        'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்', 'சர்வே எண்', 'பரப்பு ஏ.செ', 'பயிர்',
         'விதை பகுதி', 'இரசாயன உரம் 50%', 'தொழு உரம் 50%', 'பூச்சி மருந்து', 'ரொக்கம்', 'மொத்தம்', 'கையொப்பம்'
       ];
       const rows = exportItems.map((item, index) => {
@@ -2985,13 +3234,15 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         const compAmt = parseFloat(String(item.fertilizerKind || item.compost || '0').replace(/[^0-9.]/g, '')) || 0;
         const pestAmt = parseFloat(String(item.pesticide || '0').replace(/[^0-9.]/g, '')) || 0;
         const cashAmt = parseFloat(String(item.organicFertilizer || item.cash || '0').replace(/[^0-9.]/g, '')) || 0;
+        const { initial, name: cleanName } = parseInitialAndName(item);
 
         return [
           index + 1,
           `"${item.aClass || item.memberNo || ''}"`,
           `"${item.sb || '-'}"`,
           `"${item.erp || '-'}"`,
-          `"${item.name || ''}"`,
+          `"${initial || '-'}"`,
+          `"${cleanName || ''}"`,
           `"${item.surveyNo || '-'}"`,
           formatAcres(item.acres),
           `"${item.crop || '-'}"`,
@@ -3016,18 +3267,22 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       return;
     }
 
-    const headers = ['வ.எண்', 'A Class', 'SB கணக்கு', 'ERP கணக்கு', 'பெயர்', 'கிராமம்', 'பயிர்', 'பரப்பு', 'கடன் தொகை'];
-    const rows = exportItems.map((item, index) => [
-      index + 1,
-      item.aClass,
-      item.sb || '-',
-      item.erp || '-',
-      `"${item.name}"`,
-      `"${item.village}"`,
-      `"${item.crop}"`,
-      formatAcres(item.acres),
-      item.totalLoanAmount
-    ]);
+    const headers = ['வ.எண்', 'A Class', 'SB கணக்கு', 'ERP கணக்கு', 'Initial', 'பெயர்', 'கிராமம்', 'பயிர்', 'பரப்பு', 'கடன் தொகை'];
+    const rows = exportItems.map((item, index) => {
+      const { initial, name: cleanName } = parseInitialAndName(item);
+      return [
+        index + 1,
+        item.aClass,
+        item.sb || '-',
+        item.erp || '-',
+        `"${initial || '-'}"`,
+        `"${cleanName}"`,
+        `"${item.village}"`,
+        `"${item.crop}"`,
+        formatAcres(item.acres),
+        item.totalLoanAmount
+      ];
+    });
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -3171,9 +3426,11 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     setSanctionedAmount(String(item.sanctionedAmount || '3,00,000'));
     setOfficerDesignation(String(item.officerDesignation || 'செயலாட்சியர்'));
     setOfficerName(String(item.officerName || 'திரு.அ.சீனிவாசப்பெருமாள், கூட்டுறவு சார்பதிவாளர் / செயலாட்சியர்'));
-    setCurrentDisbNo(String(item.currentDisbNo || '2'));
-    setResolutionNo(String(item.resolutionNo || '1'));
-    setResolutionDate(String(item.resolutionDate || '04-08-2026'));
+    const editDisbNo = String(item.currentDisbNo || currentDisbNo || '2').trim();
+    setCurrentDisbNo(editDisbNo);
+    setResolutionNo(String(item.resolutionNo || resolutionNo || '1'));
+    const savedEditResDate = getSavedResDateForDisb(editDisbNo, '');
+    setResolutionDate(String(item.resolutionDate || savedEditResDate || resolutionDate || '20-05-2026'));
 
     setSurveyNo(String(item.surveyNo || '0'));
     setAcres(String(item.acres || '0'));
@@ -3234,15 +3491,33 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
     const effectiveCrop = crop === 'Others' ? (customCrop.trim() || 'Others') : crop;
 
+    const activeDisbKey = String(currentDisbNo || '').trim();
+    const activeResDate = String(resolutionDate || '').trim();
+    if (activeDisbKey && activeResDate) {
+      try {
+        const datesMap = JSON.parse(localStorage.getItem('tu3_paccs_kcc_res_dates') || '{}');
+        datesMap[activeDisbKey] = activeResDate;
+        localStorage.setItem('tu3_paccs_kcc_res_dates', JSON.stringify(datesMap));
+        localStorage.setItem('tu3_paccs_kcc_res_date_global', activeResDate);
+        localStorage.setItem('tu3_paccs_kcc_current_disb_no', activeDisbKey);
+        if (resolutionNo) localStorage.setItem('tu3_paccs_kcc_res_no', resolutionNo);
+      } catch {}
+    }
+
     const newItem = {
       id: editingItem ? editingItem.id : Date.now().toString(),
       rowIndex: editingItem?.rowIndex,
       aClass: selectedMember.aClass || selectedMember.memberNo,
       name: selectedMember.name,
+      ins: selectedMember.ins || '',
       sb: selectedMember.sb || '-',
       erp: selectedMember.erp || '-',
       careOf: selectedMember.careOf || selectedMember.fatherOrHusbandName || '-',
       village: selectedMember.village || '-',
+      rationCard: selectedMember.rationCard || '',
+      namini: selectedMember.namini || '',
+      relation: selectedMember.relation || '',
+      mdcc: selectedMember.mdcc || '',
       financialYear,
       rclNumber,
       rclDate,
@@ -3277,6 +3552,14 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       addedAt: new Date().toLocaleTimeString('ta-IN')
     };
 
+    const matchesSameBatch = (item: any) => {
+      if (!activeDisbKey) return false;
+      const itemDisb = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+      const tNum = parseInt(activeDisbKey, 10);
+      const iNum = parseInt(itemDisb, 10);
+      return itemDisb === activeDisbKey || (!isNaN(tNum) && !isNaN(iNum) && iNum === tNum);
+    };
+
     if (editingItem) {
       setAddedItems((prev) =>
         prev.map((item) => {
@@ -3285,11 +3568,20 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             (item.rowIndex && editingItem.rowIndex && item.rowIndex === editingItem.rowIndex) ||
             (String(item.aClass || '').trim().toLowerCase() === String(editingItem.aClass || '').trim().toLowerCase() &&
              String(item.crop || '').trim().toLowerCase() === String(editingItem.crop || '').trim().toLowerCase());
-          return isMatch ? { ...item, ...newItem } : item;
+          if (isMatch) return { ...item, ...newItem };
+          if (matchesSameBatch(item) && activeResDate) {
+            return { ...item, resolutionDate: activeResDate, resolutionNo };
+          }
+          return item;
         })
       );
     } else {
-      setAddedItems((prev) => [newItem, ...prev]);
+      setAddedItems((prev) => {
+        const syncedPrev = activeResDate
+          ? prev.map((item) => matchesSameBatch(item) ? { ...item, resolutionDate: activeResDate, resolutionNo } : item)
+          : prev;
+        return [newItem, ...syncedPrev];
+      });
     }
 
     // Construct full Paduvada data object covering Section 1 to Section 9
@@ -3518,16 +3810,63 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     if (!trimmed) {
       return [];
     }
-    if (trimmed.toLowerCase() === 'all') {
-      return addedItems;
-    }
-    const filterNum = parseInt(trimmed, 10);
-    return addedItems.filter((item) => {
+    const filtered = trimmed.toLowerCase() === 'all'
+      ? addedItems
+      : (() => {
+          const filterNum = parseInt(trimmed, 10);
+          return addedItems.filter((item) => {
+            const itemDisbStr = String(item.currentDisbNo || (item as any).disbNo || (item as any).disbursementNo || (item as any)['பட்டுவாடா எண்'] || '').trim();
+            const itemDisbNum = parseInt(itemDisbStr, 10);
+            return itemDisbStr === trimmed || (!isNaN(filterNum) && !isNaN(itemDisbNum) && itemDisbNum === filterNum);
+          });
+        })();
+
+    const activeCurDisb = (currentDisbNo || '').trim();
+    const activeCurNum = parseInt(activeCurDisb, 10);
+    const activeResDateVal = (resolutionDate || '').trim();
+    const activeResNoVal = (resolutionNo || '').trim();
+
+    return filtered.map((item) => {
+      const mem = getMemberForItem(item);
       const itemDisbStr = String(item.currentDisbNo || (item as any).disbNo || (item as any).disbursementNo || (item as any)['பட்டுவாடா எண்'] || '').trim();
       const itemDisbNum = parseInt(itemDisbStr, 10);
-      return itemDisbStr === trimmed || (!isNaN(filterNum) && !isNaN(itemDisbNum) && itemDisbNum === filterNum);
+      const matchesCurrentDisb = activeCurDisb !== '' && (itemDisbStr === activeCurDisb || (!isNaN(activeCurNum) && !isNaN(itemDisbNum) && itemDisbNum === activeCurNum));
+      const resolvedIns = (item.ins && String(item.ins).trim() !== '' && String(item.ins).trim() !== '-')
+        ? item.ins
+        : ((item as any).initial && String((item as any).initial).trim() !== '' && String((item as any).initial).trim() !== '-')
+          ? (item as any).initial
+          : (mem?.ins || '');
+      const savedBatchResDate = getSavedResDateForDisb(itemDisbStr, '');
+      const effectiveItemResDate = (matchesCurrentDisb && activeResDateVal)
+        ? activeResDateVal
+        : (savedBatchResDate || item.resolutionDate || '');
+      const effectiveItemResNo = (matchesCurrentDisb && activeResNoVal)
+        ? activeResNoVal
+        : (item.resolutionNo || '');
+
+      return {
+        ...item,
+        ins: resolvedIns,
+        initial: resolvedIns,
+        rationCard: item.rationCard || (item as any).ration || mem?.rationCard || '',
+        namini: item.namini || (item as any).nominee || mem?.namini || '',
+        relation: item.relation || (item as any).relationship || mem?.relation || '',
+        mdcc: item.mdcc || mem?.mdcc || '',
+        careOf: item.careOf || item.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || '',
+        fatherOrHusbandName: item.fatherOrHusbandName || item.careOf || mem?.fatherOrHusbandName || mem?.careOf || '',
+        village: item.village || mem?.village || '',
+        door: item.door || mem?.door || '',
+        street: item.street || mem?.street || '',
+        adhar: item.adhar || item.aadharNo || mem?.adhar || mem?.aadharNo || '',
+        aadharNo: item.aadharNo || item.adhar || mem?.aadharNo || mem?.adhar || '',
+        mobile: item.mobile || mem?.mobile || '',
+        sb: item.sb || mem?.sb || '',
+        erp: item.erp || mem?.erp || '',
+        resolutionDate: effectiveItemResDate,
+        resolutionNo: effectiveItemResNo
+      };
     });
-  }, [addedItems, searchedDisbNo]);
+  }, [addedItems, searchedDisbNo, currentDisbNo, resolutionDate, resolutionNo, members]);
 
   const totalAcresSum = displayItems.reduce((acc, item) => {
     const cleanStr = String(item.acres || '0').replace(/[^0-9.]/g, '');
@@ -3733,7 +4072,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                   type="text"
                   required
                   value={currentDisbNo}
-                  onChange={(e) => setCurrentDisbNo(e.target.value)}
+                  onChange={(e) => handleCurrentDisbNoChange(e.target.value)}
                   placeholder="2"
                   className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs"
                 />
@@ -3762,7 +4101,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                   type="text"
                   required
                   value={resolutionNo}
-                  onChange={(e) => setResolutionNo(e.target.value)}
+                  onChange={(e) => handleResolutionNoChange(e.target.value)}
                   placeholder="1"
                   className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-mono font-bold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none transition-all shadow-2xs"
                 />
@@ -3772,7 +4111,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <TamilDateInput
                   label="தீர்மான தேதி"
                   value={toIsoDate(resolutionDate)}
-                  onChange={(ymd) => setResolutionDate(ymd ? fromIsoDate(ymd) : '')}
+                  onChange={(ymd) => handleResolutionDateChange(ymd ? fromIsoDate(ymd) : '')}
                   required={true}
                   accentColor="green"
                 />

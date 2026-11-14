@@ -11,6 +11,7 @@ import {
   getPaduvadaFromDb,
   savePaduvadaToDb,
   updatePaduvadaInDb,
+  updateBatchResolutionInDb,
   deletePaduvadaFromDb,
   getAhPaduvadaFromDb,
   saveAhPaduvadaToDb,
@@ -42,6 +43,7 @@ import {
   deleteMemberFromFirestore,
   getPaduvadaFromFirestore,
   savePaduvadaToFirestore,
+  updateBatchResolutionInFirestore,
   getAhPaduvadaFromFirestore,
   saveAhPaduvadaToFirestore,
   deleteAhPaduvadaFromFirestore,
@@ -618,6 +620,10 @@ app.post('/api/sheets/add-paduvada', async (req, res) => {
     } else {
       await savePaduvadaToDb(paduvadaData);
       await savePaduvadaToFirestore(paduvadaData);
+      if (paduvadaData.currentDisbNo && paduvadaData.resolutionDate) {
+        await updateBatchResolutionInDb(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
+        updateBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+      }
     }
 
     // 2. Async sync to Google Sheets if configured
@@ -1105,6 +1111,11 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
         id || paduvadaData.id || paduvadaData.dbId
       );
       await savePaduvadaToFirestore(paduvadaData);
+      const batchDisbNo = currentDisbNo || paduvadaData.currentDisbNo;
+      if (batchDisbNo && paduvadaData.resolutionDate) {
+        await updateBatchResolutionInDb(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
+        updateBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+      }
     }
 
     // 2. Async sync to Google Sheets if configured
@@ -1197,6 +1208,64 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
       error: 'நபரின் தகவலைத் திருத்துவதில் பிழை ஏற்பட்டது.',
       details: error?.message || 'Unknown error'
     });
+  }
+});
+
+// 7b. POST /api/sheets/update-batch-resolution - Sync resolutionDate & resolutionNo across entire disbursement batch
+app.post('/api/sheets/update-batch-resolution', async (req, res) => {
+  try {
+    const { currentDisbNo, resolutionDate, resolutionNo, spreadsheetId: rawSheetId } = req.body;
+    const targetDisb = String(currentDisbNo || '').trim();
+    if (!targetDisb) {
+      return res.status(400).json({ success: false, error: 'பட்டுவாடா எண் தேவை.' });
+    }
+
+    await updateBatchResolutionInDb(targetDisb, resolutionDate, resolutionNo);
+    await updateBatchResolutionInFirestore(targetDisb, resolutionDate, resolutionNo);
+
+    const spreadsheetId = cleanSpreadsheetId(rawSheetId || '');
+    if (spreadsheetId && resolutionDate !== undefined) {
+      try {
+        const sheets = getSheetsClient(req);
+        const targetSheet = 'KCC All Paduvada Members';
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `'${targetSheet}'!A1:F1000`,
+        });
+        const rows = response.data.values || [];
+        const updateData: Array<{ range: string; values: any[][] }> = [];
+        rows.forEach((r, idx) => {
+          if (idx === 0) return;
+          const rowDisb = String(r[3] || '').trim();
+          const rowNum = parseInt(rowDisb, 10);
+          const targetNum = parseInt(targetDisb, 10);
+          if (rowDisb === targetDisb || (!isNaN(targetNum) && !isNaN(rowNum) && rowNum === targetNum)) {
+            const rowNumber = idx + 1;
+            const nextResNo = resolutionNo !== undefined && resolutionNo !== '' ? resolutionNo : (r[4] || '');
+            updateData.push({
+              range: `'${targetSheet}'!E${rowNumber}:F${rowNumber}`,
+              values: [[nextResNo, resolutionDate]]
+            });
+          }
+        });
+        if (updateData.length > 0) {
+          await sheets.spreadsheets.values.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+              valueInputOption: 'USER_ENTERED',
+              data: updateData
+            }
+          });
+        }
+      } catch (sheetErr: any) {
+        console.log('Google Sheet batch resolution update notice:', sheetErr?.message);
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error updating batch resolution:', error?.message || error);
+    return res.status(500).json({ success: false, error: error?.message || 'Error updating batch resolution' });
   }
 });
 

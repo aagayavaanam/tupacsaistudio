@@ -220,6 +220,39 @@ export async function savePaduvadaToFirestore(paduvada: any) {
   }
 }
 
+export async function updateBatchResolutionInFirestore(currentDisbNo: string, resolutionDate?: string, resolutionNo?: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+
+  try {
+    const targetDisb = String(currentDisbNo || '').trim();
+    if (!targetDisb) return false;
+    const snapshot = await getDocs(collection(db, 'paduvada'));
+    const batch = writeBatch(db);
+    let count = 0;
+    snapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      const itemDisb = String(d.currentDisbNo || '').trim();
+      const targetNum = parseInt(targetDisb, 10);
+      const itemNum = parseInt(itemDisb, 10);
+      if (itemDisb === targetDisb || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum)) {
+        const updateFields: any = { updatedAt: new Date().toISOString() };
+        if (resolutionDate !== undefined) updateFields.resolutionDate = resolutionDate;
+        if (resolutionNo !== undefined && resolutionNo !== '') updateFields.resolutionNo = resolutionNo;
+        batch.set(doc(db, 'paduvada', docSnap.id), updateFields, { merge: true });
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return true;
+  } catch (err: any) {
+    console.error('Error updating batch resolution in Firestore:', err?.message || err);
+    return false;
+  }
+}
+
 // =====================================
 // AH PADUVADA FIRESTORE OPERATIONS
 // =====================================
