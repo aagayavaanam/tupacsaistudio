@@ -726,6 +726,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     { id: '8', title: '8. குறிப்பு ஆணை (Note Order)' },
     { id: '9', title: '9. 7% வட்டி ஒப்புதல் (7% Agreement)' },
     { id: '10', title: '10. தீர்மானம் (Resolution)' },
+    { id: '11', title: '11. முதல் பக்கம்' },
   ];
 
   const handlePrintForm = (formTitle: string) => {
@@ -764,12 +765,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       return;
     }
 
-    // SPECIAL HANDLING FOR 7. KCC BANK SHEET (வங்கி அறிக்கை)
-    if (formTitle.includes('Bank Sheet') || formTitle.includes('வங்கி அறிக்கை') || formTitle.includes('KCC Bank')) {
+    // SPECIAL HANDLING FOR 7. KCC BANK SHEET (வங்கி அறிக்கை) & 11. முதல் பக்கம்
+    const isFirstPageForm = formTitle.includes('முதல் பக்கம்') || formTitle.startsWith('11.');
+    if (isFirstPageForm || formTitle.includes('Bank Sheet') || formTitle.includes('வங்கி அறிக்கை') || formTitle.includes('KCC Bank')) {
       const totalDisbAmount = printItems.reduce((sum, i) => sum + getItemLoanAmount(i), 0);
       const rawSanctioned = (sanctionedAmount || printItems[0]?.creditLimit || '3,00,00,000').toString();
       const numSanctioned = parseFloat(rawSanctioned.replace(/[^0-9.]/g, '')) || 30000000;
-      const formattedSanctioned = formatIndianCurrency(numSanctioned);
+      const formattedSanctioned = formatIndianCurrency(numSanctioned, false);
 
       // Helper to parse date
       const parseRowDateVal = (dStr?: string) => {
@@ -882,14 +884,14 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         }
       }
 
-      // Format values
-      const formattedObtainedSoFar = formatIndianCurrency(matchedColI || 0);
-      const formattedCentralBankOutstanding = formatIndianCurrency(matchedColF || 0);
-      const formattedDisbTotal = formatIndianCurrency(totalDisbAmount);
-      const formattedPrevDisbAmt = prevDisbAmt > 0 ? formatIndianCurrency(prevDisbAmt) : '0';
-      const formattedCollectionsSincePrev = collectionsSincePrev > 0 ? formatIndianCurrency(collectionsSincePrev) : '0';
-      const formattedRemittanceSincePrev = remittanceSincePrev > 0 ? formatIndianCurrency(remittanceSincePrev) : '0';
-      const formattedMemberOutstanding = formatIndianCurrency(matchedColG || 0);
+      // Format values (without symbol so '₹ ' is never duplicated)
+      const formattedObtainedSoFar = formatIndianCurrency(matchedColI || 0, false);
+      const formattedCentralBankOutstanding = formatIndianCurrency(matchedColF || 0, false);
+      const formattedDisbTotal = formatIndianCurrency(totalDisbAmount, false);
+      const formattedPrevDisbAmt = prevDisbAmt > 0 ? formatIndianCurrency(prevDisbAmt, false) : '0';
+      const formattedCollectionsSincePrev = collectionsSincePrev > 0 ? formatIndianCurrency(collectionsSincePrev, false) : '0';
+      const formattedRemittanceSincePrev = remittanceSincePrev > 0 ? formatIndianCurrency(remittanceSincePrev, false) : '0';
+      const formattedMemberOutstanding = formatIndianCurrency(matchedColG || 0, false);
 
       const totalKcc6Val = printItems.reduce((acc, r) => {
         const val = parseFloat(String(r.kcc6 !== undefined && r.kcc6 !== '' ? r.kcc6 : (r.kcc6Num !== undefined && r.kcc6Num !== '' ? r.kcc6Num : (r['உரம் 6'] || r['CC6'] || r.chemicalFertilizer || r.fertilizer || '0'))).replace(/[^0-9.]/g, '')) || 0;
@@ -958,16 +960,16 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         return acc + Math.max(0, loanAmt - (kcc6 + book + ins + share));
       }, 0);
 
-      const formattedCurrentAccountTotal = formatIndianCurrency(totalCurrentAccount);
-      const formattedKcc6Total = formatIndianCurrency(totalKcc6Val);
-      const formattedInsTotal = formatIndianCurrency(totalInsVal);
-      const formattedNetTotal = formatIndianCurrency(totalNetVal);
+      const formattedCurrentAccountTotal = formatIndianCurrency(totalCurrentAccount, false);
+      const formattedKcc6Total = formatIndianCurrency(totalKcc6Val, false);
+      const formattedInsTotal = formatIndianCurrency(totalInsVal, false);
+      const formattedNetTotal = formatIndianCurrency(totalNetVal, false);
 
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
           <head>
-            <title>7. KCC Bank Sheet (வங்கி அறிக்கை)</title>
+            <title>${isFirstPageForm ? '11. முதல் பக்கம்' : '7. KCC Bank Sheet (வங்கி அறிக்கை)'}</title>
             <meta charset="utf-8">
             <style>
               @page {
@@ -1046,14 +1048,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 font-size: 12.5px;
                 line-height: 1.55;
               }
-              .amount-pill {
+              .amount-inline {
                 display: inline-block;
-                border: 1.5px solid #000000;
-                padding: 1px 10px;
+                padding: 0 4px;
                 font-weight: 900;
                 font-family: monospace;
-                font-size: 13px;
-                margin: 0 3px;
+                font-size: 13.5px;
+                margin: 0 2px;
               }
               .page-break {
                 page-break-before: always;
@@ -1118,13 +1119,13 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <td style="width: 35px; text-align: center; font-weight: bold;">2</td>
                 <td style="font-weight: 600;">அனுமதிக்கப்பட்டதில் இதுநாள் வரை பெறப்பட்டுள்ளது</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ ${formattedObtainedSoFar}</td>
+                <td style="width: 170px; text-align: ${isFirstPageForm ? 'left; padding-left: 10px;' : 'right;'} font-weight: 900; font-family: monospace; font-size: 13.5px;">${isFirstPageForm ? '₹ ' : `₹ ${formattedObtainedSoFar}`}</td>
               </tr>
               <tr>
                 <td style="width: 35px; text-align: center; font-weight: bold;">3</td>
                 <td style="font-weight: 600;">மத்திய வங்கியில் நாளது தேதியுடன் கடன் நிலுவை</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ ${formattedCentralBankOutstanding}</td>
+                <td style="width: 170px; text-align: ${isFirstPageForm ? 'left; padding-left: 10px;' : 'right;'} font-weight: 900; font-family: monospace; font-size: 13.5px;">${isFirstPageForm ? '₹ ' : `₹ ${formattedCentralBankOutstanding}`}</td>
               </tr>
               <tr>
                 <td style="width: 35px; text-align: center; font-weight: bold;">4</td>
@@ -1136,25 +1137,25 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <td style="width: 35px; text-align: center; font-weight: bold;">5</td>
                 <td style="font-weight: 600;">சென்ற பட்டுவாடாவிற்குபின் வசூல் தொகை</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ ${formattedCollectionsSincePrev}</td>
+                <td style="width: 170px; text-align: ${isFirstPageForm ? 'left; padding-left: 10px;' : 'right;'} font-weight: 900; font-family: monospace; font-size: 13.5px;">${isFirstPageForm ? '₹ ' : `₹ ${formattedCollectionsSincePrev}`}</td>
               </tr>
               <tr>
                 <td style="width: 35px; text-align: center; font-weight: bold;">6</td>
                 <td style="font-weight: 600;">சென்ற பட்டுவாடாவிற்குபின் இருசால்</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ ${formattedRemittanceSincePrev}</td>
+                <td style="width: 170px; text-align: ${isFirstPageForm ? 'left; padding-left: 10px;' : 'right;'} font-weight: 900; font-family: monospace; font-size: 13.5px;">${isFirstPageForm ? '₹ ' : `₹ ${formattedRemittanceSincePrev}`}</td>
               </tr>
               <tr>
                 <td style="width: 35px; text-align: center; font-weight: bold;">7</td>
                 <td style="font-weight: 600;">சங்கத்தில் உறுப்பினர் அளவில் கடன் நிலுவை</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ ${formattedMemberOutstanding}</td>
+                <td style="width: 170px; text-align: ${isFirstPageForm ? 'left; padding-left: 10px;' : 'right;'} font-weight: 900; font-family: monospace; font-size: 13.5px;">${isFirstPageForm ? '₹ ' : `₹ ${formattedMemberOutstanding}`}</td>
               </tr>
               <tr>
                 <td style="width: 35px; text-align: center; font-weight: bold;">8</td>
-                <td style="font-weight: 600;">சங்கத்தில் &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; தேதியில் கையிருப்பு</td>
+                <td style="font-weight: 600;">சங்கத்தில் &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; தேதியில் கையிருப்பு</td>
                 <td style="width: 20px; text-align: center; font-weight: bold;">:</td>
-                <td style="width: 170px; text-align: right; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ </td>
+                <td style="width: 170px; text-align: left; padding-left: 10px; font-weight: 900; font-family: monospace; font-size: 13.5px;">₹ </td>
               </tr>
             </table>
 
@@ -1178,7 +1179,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
             <!-- Certificate 4 -->
             <div class="cert-item">
-              4. கடன் பட்டுவாடாவில் கடன்கோரும் உறுப்பினர்களுக்கு கடன் நிலுவையிலும் வேறுஎந்த கடனிலும் அவருக்கும் அவரது கூட்டுக்குடும்பத்திலுள்ள வேறுஎவருக்கும் தவணை தவறிய கடன்பாக்கி ஏதுமில்லை என்றும் தற்பொழுது கோரும் கடன் பட்டுவாடாவிற்கு முந்திய கடன் பட்டுவாடா ஜாபிதா ரூ.${formattedPrevDisbAmt}/- விற்கு உறுப்பினர்களிடம் கையொப்பம் பெற்று கிளையில் சமர்ப்பிக்கப்பட்டுள்ளது என்றும்
+              4. கடன் பட்டுவாடாவில் கடன்கோரும் உறுப்பினர்களுக்கு கடன் நிலுவையிலும் வேறுஎந்த கடனிலும் அவருக்கும் அவரது கூட்டுக்குடும்பத்திலுள்ள வேறுஎவருக்கும் தவணை தவறிய கடன்பாக்கி ஏதுமில்லை என்றும் தற்பொழுது கோரும் கடன் பட்டுவாடாவிற்கு முந்திய கடன் பட்டுவாடா ஜாபிதா ${isFirstPageForm ? 'ரூ.<span style="display: inline-block; min-width: 150px; border-bottom: 1.2px solid #000000; margin: 0 3px; vertical-align: baseline; height: 12px;"></span>/-' : `ரூ.${formattedPrevDisbAmt}/-`} விற்கு உறுப்பினர்களிடம் கையொப்பம் பெற்று கிளையில் சமர்ப்பிக்கப்பட்டுள்ளது என்றும்
             </div>
 
             <!-- Certificate 5 -->
@@ -1195,7 +1196,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
               <!-- Secretary & President Approval Block -->
               <div class="cert-item" style="margin-top: 25px; line-height: 1.8;">
-                மேற்கண்ட சான்றுகள் சங்க செயலாளர், தலைவர் மற்றும் நிர்வாகஸ்தர்களால் சரிபார்க்கப்பட்டு சரியாக உள்ளது என்று சான்று செய்கின்றோம். எனவே கடன் பட்டுவாடா கோரும் தொகை <span class="amount-pill">₹ ${formattedDisbTotal}</span> ஐ சங்க நடப்பு கணக்கில் <span class="amount-pill">₹ ${formattedCurrentAccountTotal}</span> மற்றும் சங்க CC6 கணக்கில் <span class="amount-pill">₹ ${formattedKcc6Total}</span> ம் மூன்று வருட தனிநபர் விபத்துக்காப்பீடு <span class="amount-pill">₹ ${formattedInsTotal}</span> ம் சங்க உறுப்பினர் சேமிப்பு கணக்கில் <span class="amount-pill">₹ ${formattedNetTotal}</span> ஈடு செய்வதன் மூலம் பட்டுவாடா வழங்குமாறு அன்புடன் கேட்டுக் கொள்கிறோம்.
+                மேற்கண்ட சான்றுகள் சங்க செயலாளர், தலைவர் மற்றும் நிர்வாகஸ்தர்களால் சரிபார்க்கப்பட்டு சரியாக உள்ளது என்று சான்று செய்கின்றோம். எனவே கடன் பட்டுவாடா கோரும் தொகை <span class="amount-inline">₹ ${formattedDisbTotal}</span> ஐ சங்க நடப்பு கணக்கில் <span class="amount-inline">₹ ${formattedCurrentAccountTotal}</span> மற்றும் சங்க CC6 கணக்கில் <span class="amount-inline">₹ ${formattedKcc6Total}</span> ம் மூன்று வருட தனிநபர் விபத்துக்காப்பீடு <span class="amount-inline">₹ ${formattedInsTotal}</span> ம் சங்க உறுப்பினர் சேமிப்பு கணக்கில் <span class="amount-inline">₹ ${formattedNetTotal}</span> ஈடு செய்வதன் மூலம் பட்டுவாடா வழங்குமாறு அன்புடன் கேட்டுக் கொள்கிறோம்.
               </div>
 
               <!-- Signatures Row -->
@@ -1206,7 +1207,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
               <!-- Supervisor Recommendation Block -->
               <div class="cert-item" style="margin-top: 35px; line-height: 1.8;">
-                எனவே மேற்படி சங்க செயலாளர், தலைவர் அவர்களின் கடன் கோரிக்கையை ஏற்று <span class="amount-pill">₹ ${formattedDisbTotal}</span> பரிந்துரை செய்கிறேன். சங்க நடப்பு கணக்கில் <span class="amount-pill">₹ ${formattedCurrentAccountTotal}</span> மற்றும் சங்க CC6 கணக்கில் <span class="amount-pill">₹ ${formattedKcc6Total}</span> ம் மூன்று வருட தனிநபர் விபத்துக் காப்பீடு <span class="amount-pill">₹ ${formattedInsTotal}</span> ம் சங்க உறுப்பினர் சேமிப்பு கணக்கில் <span class="amount-pill">₹ ${formattedNetTotal}</span> ஈடு செய்வதன் மூலம் பட்டுவாடா வழங்குமாறும், மேற்படி கடன் கோரும் உறுப்பினர்களின் சிட்டா அடங்கல் மற்றும் ஆவணங்களை சரிபார்த்து சங்க உறுப்பினர்களுக்கு KCC காசுக்கடன் கணக்கில் <span class="amount-pill">₹ ${formattedDisbTotal}</span> மட்டும் பட்டுவாடா வழங்குமாறு சிபாரிசு செய்கிறேன்.
+                எனவே மேற்படி சங்க செயலாளர், தலைவர் அவர்களின் கடன் கோரிக்கையை ஏற்று <span class="amount-inline">₹ ${formattedDisbTotal}</span> பரிந்துரை செய்கிறேன். சங்க நடப்பு கணக்கில் <span class="amount-inline">₹ ${formattedCurrentAccountTotal}</span> மற்றும் சங்க CC6 கணக்கில் <span class="amount-inline">₹ ${formattedKcc6Total}</span> ம் மூன்று வருட தனிநபர் விபத்துக் காப்பீடு <span class="amount-inline">₹ ${formattedInsTotal}</span> ம் சங்க உறுப்பினர் சேமிப்பு கணக்கில் <span class="amount-inline">₹ ${formattedNetTotal}</span> ஈடு செய்வதன் மூலம் பட்டுவாடா வழங்குமாறும், மேற்படி கடன் கோரும் உறுப்பினர்களின் சிட்டா அடங்கல் மற்றும் ஆவணங்களை சரிபார்த்து சங்க உறுப்பினர்களுக்கு KCC காசுக்கடன் கணக்கில் <span class="amount-inline">₹ ${formattedDisbTotal}</span> மட்டும் பட்டுவாடா வழங்குமாறு சிபாரிசு செய்கிறேன்.
               </div>
 
               <!-- Supervisor Signature -->
