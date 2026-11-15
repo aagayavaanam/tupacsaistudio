@@ -1854,34 +1854,69 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         return 0;
       };
 
+      const isNewMemberItem = (item: any): boolean => {
+        const ms = String(item.memberStatus || '').trim();
+        const pln = String(item.prevLoanNo || '').trim();
+        const mt = String(item.mortgageType || '').trim();
+        return ms === 'புதிய உறுப்பினர்' || pln === 'புதிய உறுப்பினர்' || mt.includes('புதிய');
+      };
+
       // 1. Group & deduplicate strictly by "அ எண்" (aClass / aNo / memberNo)
-      // 2. Filter ONLY members who have insurance subscription amount > 0
+      // 2. Filter ONLY members selected as "புதிய உறுப்பினர்" in Part 7
       const memberMap = new Map<string, {
         item: typeof printItems[0];
         totalIns: number;
+        hasPart8Ins: boolean;
       }>();
 
       printItems.forEach(i => {
-        const insVal = getMemberInsuranceVal(i);
-        if (insVal <= 0) return; // STRICT FILTER: ONLY members who have insurance subscription > 0
+        if (!isNewMemberItem(i)) return; // STRICT FILTER: ONLY Part 7 புதிய உறுப்பினர் (Exclude பழைய உறுப்பினர்)
 
-        const aKey = (i.aClass || i.aNo || i.memberNo || '').toString().trim();
-        const dedupeKey = aKey && aKey !== '-' ? aKey : ((i.name || '').toString().trim() || String(i.id || Math.random()));
+        const part8Ins = getMemberInsuranceVal(i);
+        const insVal = part8Ins > 0 ? part8Ins : 45;
+
+        const mem = getMemberForItem(i);
+        const cleanVal = (v: any): string => {
+          if (v === undefined || v === null) return '';
+          const s = String(v).trim();
+          return (s === '' || s === '-' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') ? '' : s;
+        };
+        const enrichedItem = {
+          ...i,
+          sb: cleanVal(i.sb) || cleanVal(mem?.sb) || '',
+          erp: cleanVal(i.erp) || cleanVal(mem?.erp) || '',
+          ins: cleanVal(i.ins) || cleanVal((i as any).initial) || cleanVal(mem?.ins) || '',
+          careOf: cleanVal(i.careOf) || cleanVal(i.fatherOrHusbandName) || cleanVal(mem?.careOf) || cleanVal(mem?.fatherOrHusbandName) || '',
+          fatherOrHusbandName: cleanVal(i.fatherOrHusbandName) || cleanVal(i.careOf) || cleanVal(mem?.fatherOrHusbandName) || cleanVal(mem?.careOf) || '',
+          village: cleanVal(i.village) || cleanVal(mem?.village) || '',
+          rationCard: cleanVal(i.rationCard) || cleanVal((i as any).ration) || cleanVal(mem?.rationCard) || '',
+          namini: cleanVal(i.namini) || cleanVal((i as any).nominee) || cleanVal(mem?.namini) || '',
+          relation: cleanVal(i.relation) || cleanVal((i as any).relationship) || cleanVal(mem?.relation) || '',
+          disability: cleanVal(i.disability) || '0'
+        };
+
+        const aKey = (enrichedItem.aClass || enrichedItem.aNo || enrichedItem.memberNo || '').toString().trim();
+        const dedupeKey = aKey && aKey !== '-' ? aKey : ((enrichedItem.name || '').toString().trim() || String(enrichedItem.id || Math.random()));
 
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
-          existing.totalIns += insVal;
-          if ((!existing.item.ins || existing.item.ins === '-') && i.ins && i.ins !== '-') existing.item.ins = i.ins;
-          if (!existing.item.careOf && i.careOf) existing.item.careOf = i.careOf;
-          if (!existing.item.rationCard && i.rationCard) existing.item.rationCard = i.rationCard;
-          if (!existing.item.namini && i.namini) existing.item.namini = i.namini;
-          if (!existing.item.relation && i.relation) existing.item.relation = i.relation;
-          if (!existing.item.sb && i.sb) existing.item.sb = i.sb;
-          if (!existing.item.erp && i.erp) existing.item.erp = i.erp;
+          if (part8Ins > 0) {
+            existing.totalIns = existing.hasPart8Ins ? existing.totalIns + part8Ins : part8Ins;
+            existing.hasPart8Ins = true;
+          }
+          if (!existing.item.ins && enrichedItem.ins) existing.item.ins = enrichedItem.ins;
+          if (!existing.item.careOf && enrichedItem.careOf) existing.item.careOf = enrichedItem.careOf;
+          if (!existing.item.village && enrichedItem.village) existing.item.village = enrichedItem.village;
+          if (!existing.item.rationCard && enrichedItem.rationCard) existing.item.rationCard = enrichedItem.rationCard;
+          if (!existing.item.namini && enrichedItem.namini) existing.item.namini = enrichedItem.namini;
+          if (!existing.item.relation && enrichedItem.relation) existing.item.relation = enrichedItem.relation;
+          if (!existing.item.sb && enrichedItem.sb) existing.item.sb = enrichedItem.sb;
+          if (!existing.item.erp && enrichedItem.erp) existing.item.erp = enrichedItem.erp;
         } else {
           memberMap.set(dedupeKey, {
-            item: { ...i },
-            totalIns: insVal
+            item: enrichedItem,
+            totalIns: insVal,
+            hasPart8Ins: part8Ins > 0
           });
         }
       });
@@ -1889,7 +1924,8 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const insPrintItems = Array.from(memberMap.values()).filter(m => m.totalIns > 0);
 
       if (insPrintItems.length === 0) {
-        alert(`தேர்ந்தெடுக்கப்பட்ட பட்டுவாடாவில் (பட்டுவாடா எண்: ${effectiveDisbNo}) காப்பீடு தொகை பிடித்தம் உள்ள (Insurance > 0) உறுப்பினர்கள் எவரும் இல்லை. காப்பீடு தொகை உள்ள உறுப்பினர்கள் மட்டுமே இவ்வறிக்கையில் காட்டப்படுவர்.`);
+        printWindow.close();
+        alert(`தேர்ந்தெடுக்கப்பட்ட பட்டுவாடாவில் (பட்டுவாடா எண்: ${effectiveDisbNo}) புதிய உறுப்பினர்கள் எவரும் இல்லை. பகுதி 7ல் "புதிய உறுப்பினர்" எனத் தேர்வு செய்யப்பட்டவர்களுக்கு மட்டுமே காப்பீடு படிவம் அச்சிடப்படும்.`);
         return;
       }
 
@@ -2023,25 +2059,25 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             </table>
 
             <!-- 4. Insurance Details 13-Column Table matching PDF exactly -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0; table-layout: fixed;">
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0; table-layout: auto;">
               <thead>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 3.5%;">வ எண்</th>
-                  <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 2px; width: 35%;">உறுப்பினர் விபரம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 13%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 8.5%;">கிராமம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 12%;">குடும்ப<br/>அட்டை<br/>எண்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 7%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 10%;">நாமினியின்<br/>பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 4.5%;">உறவு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 6.5%;">சந்தாத்<br/>தொகை</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 4px; white-space: nowrap;">வ எண்</th>
+                  <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 4px;">உறுப்பினர் விபரம்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 6px;">தகப்பனார் /<br/>கணவர் பெயர்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 5px; white-space: nowrap;">கிராமம்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 6px; white-space: nowrap;">குடும்ப<br/>அட்டை எண்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 4px;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 6px;">நாமினியின்<br/>பெயர்</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 4px; white-space: nowrap;">உறவு</th>
+                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 5px; white-space: nowrap;">சந்தாத்<br/>தொகை</th>
                 </tr>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5.5%;">அ எண்</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 7%;">SB எண்</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6%;">ERP</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 4.5%;">Initial</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 3px; width: 12%;">பெயர்</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 5px; white-space: nowrap;">அ எண்</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 5px; white-space: nowrap;">SB எண்</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 5px; white-space: nowrap;">ERP</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 5px; white-space: nowrap;">Initial</th>
+                  <th style="border: 1.5px solid #000000; padding: 4px 6px;">பெயர்</th>
                 </tr>
               </thead>
               <tbody style="font-weight: 600; font-size: 11px;">
@@ -2057,19 +2093,19 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
 
                   return `
                     <tr>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${memberAClass}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.sb || ''}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${initials}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left; font-weight: bold;">${cleanMemberName}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${fatherOrHusband}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${memberVillage}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-family: monospace; font-size: 10.5px;">${rationCardNo}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${disabilityInfo}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${nomineeName}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${relationship}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${insAmt.toLocaleString('en-IN')}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 4px; text-align: center; font-weight: bold; white-space: nowrap;">${idx + 1}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; font-weight: bold; white-space: nowrap;">${memberAClass}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; white-space: nowrap;">${r.sb || ''}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; font-weight: bold; white-space: nowrap;">${r.erp || ''}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; font-weight: bold; white-space: nowrap;">${initials}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 6px; text-align: left; font-weight: bold; word-break: normal; overflow-wrap: break-word; line-height: 1.35;">${cleanMemberName}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 6px; text-align: left; word-break: normal; overflow-wrap: break-word; line-height: 1.35;">${fatherOrHusband}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; white-space: nowrap;">${memberVillage}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 8px; text-align: center; font-family: monospace; font-size: 10.5px; white-space: nowrap;">${rationCardNo}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 4px; text-align: center; white-space: nowrap;">${disabilityInfo}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 6px; text-align: left; word-break: normal; overflow-wrap: break-word; line-height: 1.35;">${nomineeName}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 5px; text-align: center; white-space: nowrap;">${relationship}</td>
+                      <td style="border: 1px solid #000000; padding: 4px 6px; text-align: center; font-weight: bold; white-space: nowrap;">${insAmt.toLocaleString('en-IN')}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -2092,7 +2128,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <div>தலைவர் / செயலாட்சியர்</div>
               </div>
               <div style="width: 28%; text-align: center;">
-                <div>வட்டார மேற்பார்வையாளர்</div>
+                <div>சரக மேற்பார்வையாளர்</div>
               </div>
             </div>
 
@@ -3121,32 +3157,67 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     }
 
     if (formTitle.includes('காப்பீடு') || formTitle.includes('Insurance')) {
+      const isNewMemberItem = (item: any): boolean => {
+        const ms = String(item.memberStatus || '').trim();
+        const pln = String(item.prevLoanNo || '').trim();
+        const mt = String(item.mortgageType || '').trim();
+        return ms === 'புதிய உறுப்பினர்' || pln === 'புதிய உறுப்பினர்' || mt.includes('புதிய');
+      };
+
       const memberMap = new Map<string, {
         item: typeof exportItems[0];
         totalIns: number;
+        hasPart8Ins: boolean;
       }>();
 
       exportItems.forEach(item => {
-        const insVal = parseFloat(String(item.insurance || '0').replace(/[^0-9.]/g, '')) || 0;
-        if (insVal <= 0) return; // ONLY members who have insurance subscription
+        if (!isNewMemberItem(item)) return; // ONLY Part 7 புதிய உறுப்பினர்
 
-        const aKey = (item.aClass || item.aNo || item.memberNo || '').toString().trim();
-        const dedupeKey = aKey && aKey !== '-' ? aKey : ((item.name || '').toString().trim() || String(item.id || Math.random()));
+        const part8Ins = parseFloat(String(item.insurance || '0').replace(/[^0-9.]/g, '')) || 0;
+        const insVal = part8Ins > 0 ? part8Ins : 45;
+
+        const mem = getMemberForItem(item);
+        const cleanVal = (v: any): string => {
+          if (v === undefined || v === null) return '';
+          const s = String(v).trim();
+          return (s === '' || s === '-' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') ? '' : s;
+        };
+        const enrichedItem = {
+          ...item,
+          sb: cleanVal(item.sb) || cleanVal(mem?.sb) || '',
+          erp: cleanVal(item.erp) || cleanVal(mem?.erp) || '',
+          ins: cleanVal(item.ins) || cleanVal((item as any).initial) || cleanVal(mem?.ins) || '',
+          careOf: cleanVal(item.careOf) || cleanVal(item.fatherOrHusbandName) || cleanVal(mem?.careOf) || cleanVal(mem?.fatherOrHusbandName) || '',
+          fatherOrHusbandName: cleanVal(item.fatherOrHusbandName) || cleanVal(item.careOf) || cleanVal(mem?.fatherOrHusbandName) || cleanVal(mem?.careOf) || '',
+          village: cleanVal(item.village) || cleanVal(mem?.village) || '',
+          rationCard: cleanVal(item.rationCard) || cleanVal((item as any).ration) || cleanVal(mem?.rationCard) || '',
+          namini: cleanVal(item.namini) || cleanVal((item as any).nominee) || cleanVal(mem?.namini) || '',
+          relation: cleanVal(item.relation) || cleanVal((item as any).relationship) || cleanVal(mem?.relation) || '',
+          disability: cleanVal(item.disability) || '0'
+        };
+
+        const aKey = (enrichedItem.aClass || enrichedItem.aNo || enrichedItem.memberNo || '').toString().trim();
+        const dedupeKey = aKey && aKey !== '-' ? aKey : ((enrichedItem.name || '').toString().trim() || String(enrichedItem.id || Math.random()));
 
         if (memberMap.has(dedupeKey)) {
           const existing = memberMap.get(dedupeKey)!;
-          existing.totalIns += insVal;
-          if ((!existing.item.ins || existing.item.ins === '-') && item.ins && item.ins !== '-') existing.item.ins = item.ins;
-          if (!existing.item.careOf && item.careOf) existing.item.careOf = item.careOf;
-          if (!existing.item.rationCard && item.rationCard) existing.item.rationCard = item.rationCard;
-          if (!existing.item.namini && item.namini) existing.item.namini = item.namini;
-          if (!existing.item.relation && item.relation) existing.item.relation = item.relation;
-          if (!existing.item.sb && item.sb) existing.item.sb = item.sb;
-          if (!existing.item.erp && item.erp) existing.item.erp = item.erp;
+          if (part8Ins > 0) {
+            existing.totalIns = existing.hasPart8Ins ? existing.totalIns + part8Ins : part8Ins;
+            existing.hasPart8Ins = true;
+          }
+          if (!existing.item.ins && enrichedItem.ins) existing.item.ins = enrichedItem.ins;
+          if (!existing.item.careOf && enrichedItem.careOf) existing.item.careOf = enrichedItem.careOf;
+          if (!existing.item.village && enrichedItem.village) existing.item.village = enrichedItem.village;
+          if (!existing.item.rationCard && enrichedItem.rationCard) existing.item.rationCard = enrichedItem.rationCard;
+          if (!existing.item.namini && enrichedItem.namini) existing.item.namini = enrichedItem.namini;
+          if (!existing.item.relation && enrichedItem.relation) existing.item.relation = enrichedItem.relation;
+          if (!existing.item.sb && enrichedItem.sb) existing.item.sb = enrichedItem.sb;
+          if (!existing.item.erp && enrichedItem.erp) existing.item.erp = enrichedItem.erp;
         } else {
           memberMap.set(dedupeKey, {
-            item: { ...item },
-            totalIns: insVal
+            item: enrichedItem,
+            totalIns: insVal,
+            hasPart8Ins: part8Ins > 0
           });
         }
       });
@@ -3154,7 +3225,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       const targetItems = Array.from(memberMap.values()).filter(m => m.totalIns > 0);
 
       if (targetItems.length === 0) {
-        alert('பகுதி 8ல் காப்பீடு பிடித்தம் உள்ள (Insurance > 0) உறுப்பினர்கள் யாரும் பட்டியலில் இல்லை.');
+        alert('பகுதி 7ல் "புதிய உறுப்பினர்" எனத் தேர்வு செய்யப்பட்ட உறுப்பினர்கள் யாரும் பட்டியலில் இல்லை.');
         return;
       }
 
@@ -3430,7 +3501,32 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
       setPrevLoanNo('புதிய உறுப்பினர்');
       setPrevLoanDate('-');
       setPrevLoanAmount('0');
+      if (mortgageType.includes('முன்கடன் செலுத்தியவர்')) {
+        setMortgageType(mortgageType.replace('முன்கடன் செலுத்தியவர்', 'புதிய உறுப்பினர்'));
+      }
     } else {
+      if (prevLoanNo === 'புதிய உறுப்பினர்') {
+        setPrevLoanNo('KCC -');
+      }
+      if (prevLoanDate === '-') {
+        setPrevLoanDate('');
+      }
+      if (mortgageType.includes('புதிய உறுப்பினர்')) {
+        setMortgageType(mortgageType.replace('புதிய உறுப்பினர்', 'முன்கடன் செலுத்தியவர்'));
+      }
+    }
+  };
+
+  // Handle Mortgage Type Change & sync Member Status
+  const handleMortgageTypeChange = (val: string) => {
+    setMortgageType(val);
+    if (val.includes('புதிய')) {
+      setMemberStatus('புதிய உறுப்பினர்');
+      setPrevLoanNo('புதிய உறுப்பினர்');
+      setPrevLoanDate('-');
+      setPrevLoanAmount('0');
+    } else {
+      setMemberStatus('பழைய உறுப்பினர்');
       if (prevLoanNo === 'புதிய உறுப்பினர்') {
         setPrevLoanNo('KCC -');
       }
@@ -3876,16 +3972,25 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
     const activeResDateVal = (resolutionDate || '').trim();
     const activeResNoVal = (resolutionNo || '').trim();
 
+    const cleanField = (v: any): string => {
+      if (v === undefined || v === null) return '';
+      const s = String(v).trim();
+      return (s === '' || s === '-' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') ? '' : s;
+    };
+    const firstValid = (...vals: any[]): string => {
+      for (const v of vals) {
+        const c = cleanField(v);
+        if (c) return c;
+      }
+      return '';
+    };
+
     return filtered.map((item) => {
       const mem = getMemberForItem(item);
       const itemDisbStr = String(item.currentDisbNo || (item as any).disbNo || (item as any).disbursementNo || (item as any)['பட்டுவாடா எண்'] || '').trim();
       const itemDisbNum = parseInt(itemDisbStr, 10);
       const matchesCurrentDisb = activeCurDisb !== '' && (itemDisbStr === activeCurDisb || (!isNaN(activeCurNum) && !isNaN(itemDisbNum) && itemDisbNum === activeCurNum));
-      const resolvedIns = (item.ins && String(item.ins).trim() !== '' && String(item.ins).trim() !== '-')
-        ? item.ins
-        : ((item as any).initial && String((item as any).initial).trim() !== '' && String((item as any).initial).trim() !== '-')
-          ? (item as any).initial
-          : (mem?.ins || '');
+      const resolvedIns = firstValid(item.ins, (item as any).initial, mem?.ins);
       const savedBatchResDate = getSavedResDateForDisb(itemDisbStr, '');
       const effectiveItemResDate = (matchesCurrentDisb && activeResDateVal)
         ? activeResDateVal
@@ -3898,22 +4003,22 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         ...item,
         ins: resolvedIns,
         initial: resolvedIns,
-        rationCard: item.rationCard || (item as any).ration || mem?.rationCard || '',
-        namini: item.namini || (item as any).nominee || mem?.namini || '',
-        relation: item.relation || (item as any).relationship || mem?.relation || '',
-        mdcc: item.mdcc || mem?.mdcc || '',
-        careOf: item.careOf || item.fatherOrHusbandName || mem?.careOf || mem?.fatherOrHusbandName || '',
-        fatherOrHusbandName: item.fatherOrHusbandName || item.careOf || mem?.fatherOrHusbandName || mem?.careOf || '',
-        village: item.village || mem?.village || '',
-        door: item.door || mem?.door || '',
-        street: item.street || mem?.street || '',
-        adhar: item.adhar || item.aadharNo || mem?.adhar || mem?.aadharNo || '',
-        aadharNo: item.aadharNo || item.adhar || mem?.aadharNo || mem?.adhar || '',
-        mobile: item.mobile || mem?.mobile || '',
-        sb: item.sb || mem?.sb || '',
-        erp: item.erp || mem?.erp || '',
-        caste: (item.caste && String(item.caste).trim() !== '' && String(item.caste).trim() !== '-') ? item.caste : (mem?.caste || '-'),
-        gender: (item.gender && String(item.gender).trim() !== '' && String(item.gender).trim() !== '-') ? item.gender : (mem?.gender || ''),
+        rationCard: firstValid(item.rationCard, (item as any).ration, mem?.rationCard),
+        namini: firstValid(item.namini, (item as any).nominee, mem?.namini),
+        relation: firstValid(item.relation, (item as any).relationship, mem?.relation),
+        mdcc: firstValid(item.mdcc, mem?.mdcc),
+        careOf: firstValid(item.careOf, item.fatherOrHusbandName, mem?.careOf, mem?.fatherOrHusbandName),
+        fatherOrHusbandName: firstValid(item.fatherOrHusbandName, item.careOf, mem?.fatherOrHusbandName, mem?.careOf),
+        village: firstValid(item.village, mem?.village),
+        door: firstValid(item.door, mem?.door),
+        street: firstValid(item.street, mem?.street),
+        adhar: firstValid(item.adhar, item.aadharNo, mem?.adhar, mem?.aadharNo),
+        aadharNo: firstValid(item.aadharNo, item.adhar, mem?.aadharNo, mem?.adhar),
+        mobile: firstValid(item.mobile, mem?.mobile),
+        sb: firstValid(item.sb, mem?.sb),
+        erp: firstValid(item.erp, mem?.erp),
+        caste: firstValid(item.caste, mem?.caste) || '-',
+        gender: firstValid(item.gender, mem?.gender),
         memberStatus: item.memberStatus || ((item.prevLoanNo === 'புதிய உறுப்பினர்' || String(item.mortgageType || '').includes('புதிய')) ? 'புதிய உறுப்பினர்' : 'பழைய உறுப்பினர்'),
         resolutionDate: effectiveItemResDate,
         resolutionNo: effectiveItemResNo
@@ -4552,7 +4657,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                 <label className="block text-stone-700 font-bold mb-1">வெந்நிலை / தொடர்ச்சி அடமானம்</label>
                 <select
                   value={mortgageType}
-                  onChange={(e) => setMortgageType(e.target.value)}
+                  onChange={(e) => handleMortgageTypeChange(e.target.value)}
                   className="w-full bg-white text-stone-900 border border-stone-300 rounded-lg px-3.5 py-2 font-semibold focus:ring-2 focus:ring-[#007A4D] focus:border-[#007A4D] outline-none cursor-pointer transition-all shadow-2xs"
                 >
                   <option value="வெந்நிலை ஜாமீன் மூலம் முன்கடன் செலுத்தியவர்">வெந்நிலை ஜாமீன் மூலம் முன்கடன் செலுத்தியவர்</option>

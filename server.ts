@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { google } from 'googleapis';
+import { sheets as googleSheets, auth as googleAuth } from '@googleapis/sheets';
 import { createServer as createViteServer } from 'vite';
 import { getDb, queryObjects, runQuery, saveDb } from './server/sqlite-db';
 import {
@@ -125,17 +125,17 @@ function getSheetsClient(req: express.Request) {
   }
 
   if (token) {
-    const auth = new google.auth.OAuth2();
+    const auth = new googleAuth.OAuth2();
     auth.setCredentials({ access_token: token });
-    return google.sheets({ version: 'v4', auth });
+    return googleSheets({ version: 'v4', auth });
   }
 
   const apiKey = process.env.GOOGLE_API_KEY;
   if (apiKey) {
-    return google.sheets({ version: 'v4', auth: apiKey });
+    return googleSheets({ version: 'v4', auth: apiKey });
   }
 
-  return google.sheets({ version: 'v4' });
+  return googleSheets({ version: 'v4' });
 }
 
 // 1. GET /api/sheets/members - Fetch members from SQLite or Google Sheet tab 'Loanmember'
