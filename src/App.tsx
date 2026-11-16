@@ -110,17 +110,73 @@ export default function App() {
     }
   }, [spreadsheetId]);
 
-  // Primary: Load members from Firebase Firestore Cloud Database
+  // Primary: Load members from Firebase Firestore Cloud Database (+ Server SQLite fallback & local auto-sync)
   useEffect(() => {
-    getMembersFromFirestore()
-      .then((fsMembers) => {
-        if (fsMembers && fsMembers.length > 0) {
-          setMembers(fsMembers);
+    let cancelled = false;
+    const syncMembers = async () => {
+      let fsMembers: LoanMember[] = [];
+      let serverMembers: LoanMember[] = [];
+
+      const [fsRes, apiRes] = await Promise.allSettled([
+        getMembersFromFirestore(),
+        fetch('/api/sheets/members?storageOnly=true').then((r) => r.json())
+      ]);
+
+      if (fsRes.status === 'fulfilled' && Array.isArray(fsRes.value)) {
+        fsMembers = fsRes.value;
+      }
+      if (apiRes.status === 'fulfilled' && apiRes.value?.success && Array.isArray(apiRes.value.members)) {
+        serverMembers = apiRes.value.members;
+      }
+
+      if (cancelled) return;
+
+      const cloudMap = new Map<string, LoanMember>();
+      const keyOf = (m: any) => String(m?.memberNo || m?.aClass || '').trim().toLowerCase();
+
+      for (const sm of serverMembers) {
+        const k = keyOf(sm);
+        if (k) cloudMap.set(k, sm);
+      }
+      const fsKeys = new Set<string>();
+      for (const fm of fsMembers) {
+        const k = keyOf(fm);
+        if (k) {
+          fsKeys.add(k);
+          cloudMap.set(k, { ...(cloudMap.get(k) || {}), ...fm });
         }
-      })
-      .catch((err) => {
-        console.warn('Firestore load notice:', err);
-      });
+      }
+
+      if (cloudMap.size > 0) {
+        // Auto-sync any non-sample local members not yet in Firestore
+        const initialKeys = new Set(INITIAL_LOAN_MEMBERS.map((m) => keyOf(m)));
+        try {
+          const savedRaw = localStorage.getItem(LOCAL_STORAGE_KEYS.MEMBERS);
+          const localSaved: LoanMember[] = savedRaw ? JSON.parse(savedRaw) : [];
+          if (Array.isArray(localSaved)) {
+            for (const lm of localSaved) {
+              const k = keyOf(lm);
+              if (k && !initialKeys.has(k) && !cloudMap.has(k)) {
+                cloudMap.set(k, lm);
+                if (!fsKeys.has(k)) {
+                  saveMemberToFirestore(lm).catch(() => {});
+                }
+              }
+            }
+          }
+        } catch {}
+
+        setMembers(Array.from(cloudMap.values()));
+      }
+    };
+
+    syncMembers().catch((err) => {
+      console.warn('Firestore member sync notice:', err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -166,7 +222,7 @@ export default function App() {
     });
   };
 
-  // Handler to add new Loanmember (saves to state and Firebase Firestore)
+  // Handler to add new Loanmember (saves to state, Firebase Firestore, and Server SQLite)
   const handleAddMember = async (newMember: LoanMember) => {
     setMembers((prev) => [
       newMember, 
@@ -178,6 +234,12 @@ export default function App() {
     } catch (e) {
       console.warn('Firestore save notice:', e);
     }
+
+    fetch('/api/sheets/add-member', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member: newMember })
+    }).catch(() => {});
 
     // Also auto-create a default KCC Bank Account for the new member
     if (newMember.kccAccountNo) {
@@ -205,6 +267,9 @@ export default function App() {
     } catch (e) {
       console.warn('Firestore delete notice:', e);
     }
+    fetch(`/api/sheets/members/${encodeURIComponent(cleanNo)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
   };
 
   // Handler to add new Bank Account

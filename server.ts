@@ -138,58 +138,78 @@ function getSheetsClient(req: express.Request) {
   return googleSheets({ version: 'v4' });
 }
 
-// 1. GET /api/sheets/members - Fetch members from SQLite or Google Sheet tab 'Loanmember'
+// 1. GET /api/sheets/members - Fetch members from Firestore, SQLite or Google Sheet tab 'Loanmember'
 app.get('/api/sheets/members', async (req, res) => {
   try {
     const forceRefresh = req.query.forceRefresh === 'true';
-    const spreadsheetId = (req.query.spreadsheetId as string) || process.env.SPREADSHEET_ID || '1YJlGj7g2yH9kN_2-JVEuuHrIQhJ_ZGvHgGPh_Xg13pI';
+    const storageOnly = req.query.storageOnly === 'true';
+    const spreadsheetId = storageOnly
+      ? ''
+      : ((req.query.spreadsheetId as string) || process.env.SPREADSHEET_ID || '1YJlGj7g2yH9kN_2-JVEuuHrIQhJ_ZGvHgGPh_Xg13pI');
 
-    // First check Firebase Firestore Database
+    const DEFAULT_HEADERS = [
+      'A Class', 'SB', 'ERP', 'Ins', 'Name', 'C/o', 'Door', 'Street', 'Village',
+      'Adhar', 'Mobile', 'Ration Card', 'Namini', 'Relation', 'Mdcc', 'Caste', 'Gender', 'Total Share'
+    ];
+
+    // First merge Firebase Firestore & SQLite Database
     if (!forceRefresh) {
-      const fsMembers = await getMembersFromFirestore();
-      if (fsMembers && fsMembers.length > 0) {
+      const [fsMembersRaw, dbMembersRaw] = await Promise.all([
+        getMembersFromFirestore().catch(() => null),
+        getMembersFromDb().catch(() => [])
+      ]);
+
+      const fsMembers = Array.isArray(fsMembersRaw) ? fsMembersRaw : [];
+      const dbMembers = Array.isArray(dbMembersRaw) ? dbMembersRaw : [];
+
+      if (fsMembers.length > 0 || dbMembers.length > 0) {
+        const mergedMap = new Map<string, any>();
+        const getMemberKey = (m: any) => String(m.memberNo || m.aClass || '').trim().toLowerCase();
+
+        for (const dm of dbMembers) {
+          const k = getMemberKey(dm);
+          if (k) mergedMap.set(k, dm);
+        }
+
+        const fsKeySet = new Set<string>();
+        for (const fm of fsMembers) {
+          const k = getMemberKey(fm);
+          if (k) {
+            fsKeySet.add(k);
+            mergedMap.set(k, { ...(mergedMap.get(k) || {}), ...fm });
+          }
+        }
+
+        // Push any SQLite-only members up to Firestore asynchronously
+        for (const dm of dbMembers) {
+          const k = getMemberKey(dm);
+          if (k && !fsKeySet.has(k)) {
+            saveMemberToFirestore(dm).catch(() => {});
+          }
+        }
+
+        const merged = Array.from(mergedMap.values());
         return res.json({
           success: true,
-          members: fsMembers,
-          headers: [
-            'A Class', 'SB', 'ERP', 'Ins', 'Name', 'C/o', 'Door', 'Street', 'Village',
-            'Adhar', 'Mobile', 'Ration Card', 'Namini', 'Relation', 'Mdcc', 'Caste', 'Gender', 'Total Share'
-          ],
-          total: fsMembers.length,
-          source: 'firestore'
+          members: merged,
+          headers: DEFAULT_HEADERS,
+          total: merged.length,
+          source: fsMembers.length > 0 ? 'firestore' : 'sqlite'
         });
       }
 
-      const dbMembers = await getMembersFromDb();
-      if (dbMembers && dbMembers.length > 0) {
+      if (storageOnly) {
         return res.json({
           success: true,
-          members: dbMembers,
-          headers: [
-            'A Class', 'SB', 'ERP', 'Ins', 'Name', 'C/o', 'Door', 'Street', 'Village',
-            'Adhar', 'Mobile', 'Ration Card', 'Namini', 'Relation', 'Mdcc', 'Caste', 'Gender', 'Total Share'
-          ],
-          total: dbMembers.length,
-          source: 'sqlite'
+          members: [],
+          headers: DEFAULT_HEADERS,
+          total: 0,
+          source: 'storage'
         });
       }
     }
 
     if (!spreadsheetId) {
-      const dbMembers = await getMembersFromDb();
-      if (dbMembers && dbMembers.length > 0) {
-        return res.json({
-          success: true,
-          members: dbMembers,
-          headers: [
-            'A Class', 'SB', 'ERP', 'Ins', 'Name', 'C/o', 'Door', 'Street', 'Village',
-            'Adhar', 'Mobile', 'Ration Card', 'Namini', 'Relation', 'Mdcc', 'Caste', 'Gender', 'Total Share'
-          ],
-          total: dbMembers.length,
-          source: 'sqlite'
-        });
-      }
-
       return res.status(400).json({ 
         success: false,
         error: 'Spreadsheet ID (கூகுள் சீட் ஐடி) தேவைப்படுகிறது.' 
@@ -463,9 +483,10 @@ app.post('/api/sheets/add-member', async (req, res) => {
     }
 
     // 1. Save to SQLite database and Firebase Firestore Cloud DB
+    let firestoreSaved = false;
     if (member) {
       await saveMemberToDb(member);
-      await saveMemberToFirestore(member);
+      firestoreSaved = await saveMemberToFirestore(member);
     } else if (rowValues && Array.isArray(rowValues)) {
       const memObj = {
         memberNo: rowValues[0],
@@ -489,7 +510,7 @@ app.post('/api/sheets/add-member', async (req, res) => {
         totalShare: rowValues[17]
       };
       await saveMemberToDb(memObj);
-      await saveMemberToFirestore(memObj);
+      firestoreSaved = await saveMemberToFirestore(memObj);
     }
 
     // 2. Also sync to Google Sheets if configured
@@ -545,7 +566,8 @@ app.post('/api/sheets/add-member', async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'உறுப்பினர் விபரம் SQLite தரவுத்தளத்தில் வெற்றிப்படியாக பதியப்பட்டது!'
+      storageSaved: { sqlite: true, firestore: firestoreSaved },
+      message: 'உறுப்பினர் விபரம் சேமிப்பகத்தில் (Firebase & SQLite DB) வெற்றியுடன் பதியப்பட்டது!'
     });
   } catch (error: any) {
     console.error('Error adding member:', error?.message || error);
@@ -624,14 +646,14 @@ app.post('/api/sheets/add-paduvada', async (req, res) => {
       firestoreSaved = await saveAhPaduvadaToFirestore(paduvadaData);
       if (paduvadaData.currentDisbNo && paduvadaData.resolutionDate) {
         await updateAhBatchResolutionInDb(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
-        updateAhBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+        await updateAhBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
       }
     } else {
       await savePaduvadaToDb(paduvadaData);
       firestoreSaved = await savePaduvadaToFirestore(paduvadaData);
       if (paduvadaData.currentDisbNo && paduvadaData.resolutionDate) {
         await updateBatchResolutionInDb(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
-        updateBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+        await updateBatchResolutionInFirestore(paduvadaData.currentDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
       }
     }
 
@@ -736,11 +758,16 @@ app.get('/api/sheets/get-paduvada', async (req, res) => {
 
     // 1. Read from both SQLite and Firebase Firestore Storage when storageOnly or !forceRefresh
     if (storageOnly || !forceRefresh) {
-      const dbAllResult = isAH ? await getAhPaduvadaFromDb('') : await getPaduvadaFromDb('');
-      const fsResult = isAH ? await getAhPaduvadaFromFirestore() : await getPaduvadaFromFirestore();
+      const [dbAllResult, fsResult] = await Promise.all([
+        isAH ? getAhPaduvadaFromDb('') : getPaduvadaFromDb(''),
+        isAH ? getAhPaduvadaFromFirestore() : getPaduvadaFromFirestore()
+      ]);
 
-      const dbItems: any[] = dbAllResult?.data || [];
-      const fsItems: any[] = Array.isArray(fsResult) ? fsResult : [];
+      const isValidItem = (item: any) =>
+        Boolean(String(item?.aClass || item?.memberNo || '').trim() || String(item?.name || '').trim());
+
+      const dbItems: any[] = (dbAllResult?.data || []).filter(isValidItem);
+      const fsItems: any[] = (Array.isArray(fsResult) ? fsResult : []).filter(isValidItem);
 
       if (dbItems.length > 0 || fsItems.length > 0 || storageOnly) {
         const makeKey = (item: any) => {
@@ -757,8 +784,11 @@ app.get('/api/sheets/get-paduvada', async (req, res) => {
         for (const item of dbItems) {
           mergedMap.set(makeKey(item), item);
         }
+
+        const fsKeySet = new Set<string>();
         for (const fsItem of fsItems) {
           const k = makeKey(fsItem);
+          fsKeySet.add(k);
           const existing = mergedMap.get(k);
           if (existing) {
             mergedMap.set(k, {
@@ -773,6 +803,20 @@ app.get('/api/sheets/get-paduvada', async (req, res) => {
               saveAhPaduvadaToDb(fsItem).catch(() => {});
             } else {
               savePaduvadaToDb(fsItem).catch(() => {});
+            }
+          }
+        }
+
+        // Push any valid SQLite-only rows up to Firestore so other computers can see them
+        if (fsResult !== null) {
+          for (const dbItem of dbItems) {
+            const k = makeKey(dbItem);
+            if (!fsKeySet.has(k)) {
+              if (isAH) {
+                saveAhPaduvadaToFirestore(dbItem).catch(() => {});
+              } else {
+                savePaduvadaToFirestore(dbItem).catch(() => {});
+              }
             }
           }
         }
@@ -1127,6 +1171,7 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
     const isAH = type === 'ah' || req.query.type === 'ah' || paduvadaData.loanType === 'ah' || Boolean(paduvadaData.livestockType);
 
     // 1. Update in SQLite DB & Firestore
+    let firestoreSaved = false;
     if (isAH) {
       await updateAhPaduvadaInDb(
         paduvadaData,
@@ -1135,11 +1180,11 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
         crop || paduvadaData.crop || paduvadaData.livestockType,
         id || paduvadaData.id || paduvadaData.dbId
       );
-      await saveAhPaduvadaToFirestore(paduvadaData);
+      firestoreSaved = await saveAhPaduvadaToFirestore(paduvadaData);
       const batchDisbNo = currentDisbNo || paduvadaData.currentDisbNo;
       if (batchDisbNo && paduvadaData.resolutionDate) {
         await updateAhBatchResolutionInDb(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
-        updateAhBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+        await updateAhBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
       }
     } else {
       await updatePaduvadaInDb(
@@ -1149,11 +1194,11 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
         crop || paduvadaData.crop,
         id || paduvadaData.id || paduvadaData.dbId
       );
-      await savePaduvadaToFirestore(paduvadaData);
+      firestoreSaved = await savePaduvadaToFirestore(paduvadaData);
       const batchDisbNo = currentDisbNo || paduvadaData.currentDisbNo;
       if (batchDisbNo && paduvadaData.resolutionDate) {
         await updateBatchResolutionInDb(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
-        updateBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo).catch(() => {});
+        await updateBatchResolutionInFirestore(batchDisbNo, paduvadaData.resolutionDate, paduvadaData.resolutionNo);
       }
     }
 
@@ -1239,6 +1284,7 @@ app.post('/api/sheets/update-paduvada', async (req, res) => {
 
     res.json({
       success: true,
+      storageSaved: { sqlite: true, firestore: firestoreSaved },
       message: 'சேமிப்பகத்தில் (Firebase & SQLite DB) நபர் விபரங்கள் வெற்றியுடன் புதுப்பிக்கப்பட்டன!'
     });
   } catch (error: any) {
@@ -1539,38 +1585,63 @@ const handleGetBankSheet = async (req: express.Request, res: express.Response) =
     if (storedObF === null) storedObF = await getAppSettingFromDb(obFKey);
     if (storedObG === null) storedObG = await getAppSettingFromDb(obGKey);
 
-    // 1. Check SQLite Database first for instant response (<5ms)
-    const dbBank = isAH ? await getAhBankSheetFromDb() : await getBankSheetFromDb();
-    if (!forceRefresh && dbBank && dbBank.data && dbBank.data.length > 0) {
-      return res.json({
-        success: true,
-        data: dbBank.data,
-        totalCount: dbBank.totalCount,
-        obF: storedObF,
-        obG: storedObG,
-        source: 'sqlite'
-      });
-    }
-
-    // 2. Check Firebase Firestore Database
+    // 1. Merge Firebase Firestore and SQLite Database so multi-computer entries stay synced
     if (!forceRefresh) {
-      const fsBankRows = isAH ? await getAhBankRowsFromFirestore() : await getBankRowsFromFirestore();
-      if (fsBankRows && fsBankRows.length > 0) {
-        // Background sync to local SQLite
-        for (const item of fsBankRows) {
-          if (isAH) {
-            saveAhBankRowToDb(item).catch(() => {});
+      const [dbBank, fsBankRows] = await Promise.all([
+        isAH ? getAhBankSheetFromDb() : getBankSheetFromDb(),
+        isAH ? getAhBankRowsFromFirestore() : getBankRowsFromFirestore()
+      ]);
+
+      const dbItems: any[] = dbBank?.data || [];
+      const fsItems: any[] = Array.isArray(fsBankRows) ? fsBankRows : [];
+
+      if (dbItems.length > 0 || fsItems.length > 0) {
+        const makeBankKey = (item: any) =>
+          `${String(item.date || '').trim()}_${Number(item.memberPayment || 0)}_${Number(item.disbursementAmount || 0)}_${Number(item.bankPayment || 0)}`;
+
+        const mergedMap = new Map<string, any>();
+        for (const item of dbItems) {
+          mergedMap.set(makeBankKey(item), item);
+        }
+
+        const fsKeys = new Set<string>();
+        for (const fsItem of fsItems) {
+          const k = makeBankKey(fsItem);
+          fsKeys.add(k);
+          const existing = mergedMap.get(k);
+          if (existing) {
+            mergedMap.set(k, { ...existing, ...fsItem, id: fsItem.id || existing.id });
           } else {
-            saveBankRowToDb(item).catch(() => {});
+            mergedMap.set(k, fsItem);
+            if (isAH) {
+              saveAhBankRowToDb(fsItem).catch(() => {});
+            } else {
+              saveBankRowToDb(fsItem).catch(() => {});
+            }
           }
         }
+
+        if (fsBankRows !== null) {
+          for (const dbItem of dbItems) {
+            const k = makeBankKey(dbItem);
+            if (!fsKeys.has(k)) {
+              if (isAH) {
+                saveAhBankRowToFirestore(dbItem).catch(() => {});
+              } else {
+                saveBankRowToFirestore(dbItem).catch(() => {});
+              }
+            }
+          }
+        }
+
+        const mergedRows = Array.from(mergedMap.values());
         return res.json({
           success: true,
-          data: fsBankRows,
-          totalCount: fsBankRows.length,
+          data: mergedRows,
+          totalCount: mergedRows.length,
           obF: storedObF,
           obG: storedObG,
-          source: 'firebase'
+          source: fsItems.length > 0 ? 'firebase' : 'sqlite'
         });
       }
     }
@@ -1843,13 +1914,14 @@ app.post('/api/sheets/add-bank-row', async (req, res) => {
       await saveAppSettingToFirestore(obGKey, String(bankRow.obG));
     }
 
-    // 1. Save into local SQLite DB instantly (<1ms)
+    // 1. Save into local SQLite DB & await Firebase Firestore write
+    let firestoreSaved = false;
     if (isAH) {
       await saveAhBankRowToDb(bankRow);
-      saveAhBankRowToFirestore(bankRow).catch(e => console.log('Firestore bg save notice:', e));
+      firestoreSaved = await saveAhBankRowToFirestore(bankRow);
     } else {
       await saveBankRowToDb(bankRow);
-      saveBankRowToFirestore(bankRow).catch(e => console.log('Firestore bg save notice:', e));
+      firestoreSaved = await saveBankRowToFirestore(bankRow);
     }
 
     // 3. Background async sync to Google Sheets if configured
@@ -1908,7 +1980,8 @@ app.post('/api/sheets/add-bank-row', async (req, res) => {
 
     return res.json({
       success: true,
-      message: `${targetSheet} விவரங்கள் SQLite தரவுத்தளத்தில் சேமிக்கப்பட்டன!`
+      storageSaved: { sqlite: true, firestore: firestoreSaved },
+      message: `${targetSheet} விவரங்கள் சேமிப்பகத்தில் (Firebase & SQLite DB) சேமிக்கப்பட்டன!`
     });
   } catch (error: any) {
     console.error('Error adding bank row:', error?.message || error);

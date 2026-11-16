@@ -58,6 +58,28 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 const COLLECTION_NAME = 'members';
 
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefinedDeep(item)) as unknown as T;
+  }
+  if (typeof value === 'number') {
+    return (Number.isNaN(value) ? 0 : value) as unknown as T;
+  }
+  if (typeof value === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value as Record<string, any>)) {
+      if (v !== undefined) {
+        cleaned[k] = stripUndefinedDeep(v);
+      }
+    }
+    return cleaned as T;
+  }
+  return value;
+}
+
 /**
  * Fetch all members from Firebase Firestore
  */
@@ -81,15 +103,17 @@ export async function getMembersFromFirestore(): Promise<LoanMember[]> {
 export async function saveMemberToFirestore(member: LoanMember): Promise<void> {
   const memberNo = String(member.aClass || member.memberNo || '').trim();
   if (!memberNo) return;
-  const docPath = `${COLLECTION_NAME}/mem_${memberNo}`;
+  const cleanDocId = `mem_${memberNo.replace(/\//g, '_')}`;
+  const docPath = `${COLLECTION_NAME}/${cleanDocId}`;
   try {
-    const docRef = doc(db, COLLECTION_NAME, `mem_${memberNo}`);
-    await setDoc(docRef, {
+    const docRef = doc(db, COLLECTION_NAME, cleanDocId);
+    const cleaned = stripUndefinedDeep({
       ...member,
       memberNo,
       aClass: member.aClass || memberNo,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(docRef, cleaned, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }

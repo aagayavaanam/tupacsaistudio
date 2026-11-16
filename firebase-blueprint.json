@@ -83,6 +83,27 @@
       },
       "required": ["date"]
     },
+    "ah_bank_sheet": {
+      "title": "AH Bank Sheet",
+      "description": "AH Bank account transactions and calculations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "memberPayment": { "type": "number" },
+        "disbursementMemberCount": { "type": "number" },
+        "disbursementAmount": { "type": "number" },
+        "bankPayment": { "type": "number" },
+        "bankLevelBalance": { "type": "number" },
+        "memberLevelTotal": { "type": "number" },
+        "totalMemberCount": { "type": "number" },
+        "totalDisbursedAmount": { "type": "number" },
+        "netMeasure": { "type": "number" },
+        "bankOutstandingStatus": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["date"]
+    },
     "settings": {
       "title": "Settings",
       "description": "App settings",

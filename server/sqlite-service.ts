@@ -1,4 +1,4 @@
-import { getDb, queryObjects, runQuery, saveDb } from './sqlite-db';
+import { getDb, queryObjects, runQuery, saveDb, flushSaveDbSync } from './sqlite-db';
 
 export async function clearAllDbTables() {
   const db = await getDb();
@@ -92,6 +92,10 @@ export async function deduplicatePaduvadaInDb() {
   try {
     runQuery(db, `
       DELETE FROM paduvada
+      WHERE TRIM(COALESCE(a_class, '')) = '' AND TRIM(COALESCE(name, '')) = ''
+    `);
+    runQuery(db, `
+      DELETE FROM paduvada
       WHERE id NOT IN (
         SELECT MIN(id) 
         FROM paduvada 
@@ -107,7 +111,9 @@ export async function getPaduvadaFromDb(disbNo?: string) {
   const db = await getDb();
   await deduplicatePaduvadaInDb();
 
-  const allRows = queryObjects(db, 'SELECT * FROM paduvada ORDER BY id ASC');
+  const allRows = queryObjects(db, 'SELECT * FROM paduvada ORDER BY id ASC').filter(
+    r => Boolean(String(r.a_class || '').trim() || String(r.name || '').trim())
+  );
 
   let maxDisbNo = 0;
   allRows.forEach(r => {
@@ -195,6 +201,8 @@ export async function savePaduvadaToDb(p: any) {
   const db = await getDb();
   const addedAt = p.addedAt || new Date().toLocaleString('ta-IN');
   const targetAClass = String(p.aClass || p.memberNo || '').trim();
+  const targetName = String(p.name || '').trim();
+  if (!targetAClass && !targetName) return;
   const targetDisbNo = String(p.currentDisbNo || '').trim();
   const targetCrop = String(p.crop || '').trim();
   const targetSurvey = String(p.surveyNo || '').trim();
@@ -229,6 +237,7 @@ export async function savePaduvadaToDb(p: any) {
         p.guaranteeType || '', p.passbookFee || '', p.insurance || '', p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
         addedAt, existingId
       ]);
+      flushSaveDbSync();
       return;
     }
   }
@@ -257,6 +266,7 @@ export async function savePaduvadaToDb(p: any) {
     p.shareCapital || '', p.prevLoanNo || '', p.prevLoanDate || '', p.prevLoanAmount || '',
     addedAt
   ]);
+  flushSaveDbSync();
 }
 
 export async function updatePaduvadaInDb(p: any, aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {
@@ -638,6 +648,10 @@ export async function deduplicateAhPaduvadaInDb() {
   try {
     runQuery(db, `
       DELETE FROM ah_paduvada
+      WHERE TRIM(COALESCE(a_class, '')) = '' AND TRIM(COALESCE(name, '')) = ''
+    `);
+    runQuery(db, `
+      DELETE FROM ah_paduvada
       WHERE id NOT IN (
         SELECT MIN(id) 
         FROM ah_paduvada 
@@ -653,7 +667,9 @@ export async function getAhPaduvadaFromDb(disbNo?: string) {
   const db = await getDb();
   await deduplicateAhPaduvadaInDb();
 
-  const allRows = queryObjects(db, 'SELECT * FROM ah_paduvada ORDER BY id ASC');
+  const allRows = queryObjects(db, 'SELECT * FROM ah_paduvada ORDER BY id ASC').filter(
+    r => Boolean(String(r.a_class || '').trim() || String(r.name || '').trim())
+  );
 
   let maxDisbNo = 0;
   allRows.forEach(r => {
@@ -746,6 +762,8 @@ export async function saveAhPaduvadaToDb(p: any) {
   const db = await getDb();
   const addedAt = p.addedAt || new Date().toLocaleString('ta-IN');
   const targetAClass = String(p.aClass || p.memberNo || '').trim();
+  const targetName = String(p.name || '').trim();
+  if (!targetAClass && !targetName) return;
   const targetDisbNo = String(p.currentDisbNo || '').trim();
   const targetLivestock = String(p.livestockType || p.crop || '').trim();
   const targetCount = p.livestockCount || p.acres || '';
@@ -784,6 +802,7 @@ export async function saveAhPaduvadaToDb(p: any) {
         p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
         addedAt, existingId
       ]);
+      flushSaveDbSync();
       return;
     }
   }
@@ -813,6 +832,7 @@ export async function saveAhPaduvadaToDb(p: any) {
     p.prevLoanNo || 'AH -', p.prevLoanDate || '', p.prevLoanAmount || '0',
     addedAt
   ]);
+  flushSaveDbSync();
 }
 
 export async function updateAhPaduvadaInDb(p: any, aClass?: string, currentDisbNo?: string, crop?: string, id?: string) {

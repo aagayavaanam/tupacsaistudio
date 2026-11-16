@@ -22,6 +22,13 @@ import {
   Filter
 } from 'lucide-react';
 import { extractSpreadsheetId, formatIndianCurrency } from '../utils/formatters';
+import {
+  getBankRowsFirestore,
+  saveBankRowFirestore,
+  deleteBankRowFirestore,
+  getAppSettingFirestore,
+  saveAppSettingFirestore
+} from '../services/paduvadaFirestoreService';
 
 export interface AHBankRow {
   id?: string;
@@ -119,31 +126,42 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
   // Fetch server-wide OB Balance settings
   const fetchObSettings = async () => {
     try {
-      const res = await fetch('/api/settings/ah-ob');
-      const data = await res.json();
-      if (data && data.success) {
-        if (data.obF !== undefined && data.obF !== '') {
-          setObF(String(data.obF));
-          localStorage.setItem('ah_ob_f', String(data.obF));
-        }
-        if (data.obG !== undefined && data.obG !== '') {
-          setObG(String(data.obG));
-          localStorage.setItem('ah_ob_g', String(data.obG));
-        }
+      const [apiRes, fsObFRes, fsObGRes] = await Promise.allSettled([
+        fetch('/api/settings/ah-ob').then((r) => r.json()),
+        getAppSettingFirestore('ah_ob_f'),
+        getAppSettingFirestore('ah_ob_g')
+      ]);
+      const data = apiRes.status === 'fulfilled' ? apiRes.value : null;
+      const resolvedObF = (data?.success && data.obF !== undefined && data.obF !== '' ? String(data.obF) : '') ||
+        (fsObFRes.status === 'fulfilled' && fsObFRes.value ? String(fsObFRes.value) : '');
+      const resolvedObG = (data?.success && data.obG !== undefined && data.obG !== '' ? String(data.obG) : '') ||
+        (fsObGRes.status === 'fulfilled' && fsObGRes.value ? String(fsObGRes.value) : '');
+
+      if (resolvedObF !== '') {
+        setObF(resolvedObF);
+        localStorage.setItem('ah_ob_f', resolvedObF);
+      }
+      if (resolvedObG !== '') {
+        setObG(resolvedObG);
+        localStorage.setItem('ah_ob_g', resolvedObG);
       }
     } catch (err) {
       console.log('OB settings load notice:', err);
     }
   };
 
-  // Save OB settings to server database so it persists across all computers
+  // Save OB settings to server database & Firestore so it persists across all computers
   const saveObSettingsToServer = async (newObF: string, newObG: string) => {
     try {
-      await fetch('/api/settings/ah-ob', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ obF: newObF, obG: newObG })
-      });
+      await Promise.allSettled([
+        fetch('/api/settings/ah-ob', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ obF: newObF, obG: newObG })
+        }),
+        saveAppSettingFirestore('ah_ob_f', String(newObF ?? '')),
+        saveAppSettingFirestore('ah_ob_g', String(newObG ?? ''))
+      ]);
     } catch (err) {
       console.log('AH OB settings save notice:', err);
     }
@@ -176,35 +194,68 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
       const primaryUrl = `/api/sheets/get-bank-sheet?type=ah&spreadsheetId=${encodeURIComponent(
         sheetId
       )}&webAppUrl=${encodeURIComponent(scriptUrl)}`;
-      let res = await fetch(primaryUrl);
-      let result = await res.json();
 
-      if (!result.success) {
-        const fallbackUrl = `/api/sheets/get-bank-rows?type=ah&spreadsheetId=${encodeURIComponent(
-          sheetId
-        )}&webAppUrl=${encodeURIComponent(scriptUrl)}`;
-        res = await fetch(fallbackUrl);
-        result = await res.json();
+      const [apiResultPromise, fsRowsPromise] = await Promise.allSettled([
+        (async () => {
+          let res = await fetch(primaryUrl);
+          let result = await res.json();
+          if (!result.success) {
+            const fallbackUrl = `/api/sheets/get-bank-rows?type=ah&spreadsheetId=${encodeURIComponent(
+              sheetId
+            )}&webAppUrl=${encodeURIComponent(scriptUrl)}`;
+            res = await fetch(fallbackUrl);
+            result = await res.json();
+          }
+          return result;
+        })(),
+        getBankRowsFirestore(true)
+      ]);
+
+      const result = apiResultPromise.status === 'fulfilled' ? apiResultPromise.value : null;
+      const apiRows = (result?.success && Array.isArray(result.data)) ? result.data : [];
+      const fsRows = fsRowsPromise.status === 'fulfilled' && Array.isArray(fsRowsPromise.value) ? fsRowsPromise.value : [];
+
+      const makeKey = (r: any) =>
+        `${r.date || ''}_${r.memberPayment || 0}_${r.disbursementAmount || 0}_${r.bankPayment || 0}`;
+
+      const fsKeySet = new Set(fsRows.map(makeKey));
+      const rowMap = new Map<string, any>();
+
+      for (const r of apiRows) {
+        rowMap.set(makeKey(r), r);
+      }
+      for (const r of fsRows) {
+        const key = makeKey(r);
+        const existing = rowMap.get(key);
+        rowMap.set(key, existing ? { ...existing, ...r, id: r.id || existing.id } : r);
       }
 
-      if (result.success && Array.isArray(result.data)) {
-        setBankRows(result.data);
-        if (result.obF !== undefined && result.obF !== '') {
+      // Sync any API/SQLite-only rows up to Firestore
+      for (const r of apiRows) {
+        if (!fsKeySet.has(makeKey(r))) {
+          saveBankRowFirestore(r, true).catch(() => {});
+        }
+      }
+
+      const mergedRows = Array.from(rowMap.values());
+      if (result?.success || fsRows.length > 0) {
+        setBankRows(mergedRows);
+        if (result?.obF !== undefined && result.obF !== '') {
           setObF(String(result.obF));
           localStorage.setItem('ah_ob_f', String(result.obF));
         }
-        if (result.obG !== undefined && result.obG !== '') {
+        if (result?.obG !== undefined && result.obG !== '') {
           setObG(String(result.obG));
           localStorage.setItem('ah_ob_g', String(result.obG));
         }
         setStatusMsg({
           type: 'success',
-          text: `${result.data.length} பதிவுகள் வெற்றிகரமாகப் பெறப்பட்டன.`
+          text: `${mergedRows.length} பதிவுகள் வெற்றிகரமாகப் பெறப்பட்டன.`
         });
       } else {
         setStatusMsg({
           type: 'error',
-          text: result.error || 'தரவை பெற முடியவில்லை.'
+          text: result?.error || 'தரவை பெற முடியவில்லை.'
         });
       }
     } catch (err: any) {
@@ -299,26 +350,30 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
     });
 
     try {
-      const res = await fetch('/api/sheets/add-bank-row', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: sheetId,
-          webAppUrl: scriptUrl,
-          type: 'ah',
-          bankRow: { ...payload, id: newRowId, type: 'ah' }
-        })
-      });
+      const [apiRes, fsRes] = await Promise.allSettled([
+        fetch('/api/sheets/add-bank-row', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            spreadsheetId: sheetId,
+            webAppUrl: scriptUrl,
+            type: 'ah',
+            bankRow: { ...payload, id: newRowId, type: 'ah' }
+          })
+        }).then((r) => r.json()),
+        saveBankRowFirestore({ ...payload, id: newRowId, type: 'ah' }, true)
+      ]);
 
-      const result = await res.json();
+      const result = apiRes.status === 'fulfilled' ? apiRes.value : null;
+      const fsSaved = fsRes.status === 'fulfilled' ? fsRes.value : null;
 
-      if (result.success) {
+      if (result?.success || fsSaved) {
         // Refresh rows silently in background
         fetchBankRows();
       } else {
         setStatusMsg({
           type: 'error',
-          text: result.error || 'தரவுத்தளத்தில் பதிவதில் தோல்வி ஏற்பட்டது.'
+          text: result?.error || 'தரவுத்தளத்தில் பதிவதில் தோல்வி ஏற்பட்டது.'
         });
       }
     } catch (err: any) {
@@ -362,6 +417,8 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
     setIsUpdating(true);
     try {
       const updatedPayload: any = {
+        id: editingRow.id,
+        type: 'ah',
         date: editDate,
         memberPayment: parseFloat(editMemberPayment) || 0,
         disbursementMemberCount: parseInt(editMemberCount, 10) || 0,
@@ -379,22 +436,26 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
         netMeasure: editColJ !== '' ? parseFloat(editColJ) || 0 : 0,
       };
 
-      const res = await fetch('/api/sheets/update-bank-row', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: sheetId,
-          webAppUrl: scriptUrl,
-          type: 'ah',
-          rowIndex: editingRow.rowIndex,
-          date: editingRow.date,
-          bankRow: { ...updatedPayload, type: 'ah' }
-        })
-      });
+      const [apiRes, fsRes] = await Promise.allSettled([
+        fetch('/api/sheets/update-bank-row', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            spreadsheetId: sheetId,
+            webAppUrl: scriptUrl,
+            type: 'ah',
+            rowIndex: editingRow.rowIndex,
+            date: editingRow.date,
+            bankRow: updatedPayload
+          })
+        }).then((r) => r.json()),
+        saveBankRowFirestore(updatedPayload, true)
+      ]);
 
-      const result = await res.json();
+      const result = apiRes.status === 'fulfilled' ? apiRes.value : null;
+      const fsSaved = fsRes.status === 'fulfilled' ? fsRes.value : null;
 
-      if (result.success) {
+      if (result?.success || fsSaved) {
         setStatusMsg({
           type: 'success',
           text: 'பதிவு வெற்றியுடன் திருத்தப்பட்டது!'
@@ -404,7 +465,7 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
       } else {
         setStatusMsg({
           type: 'error',
-          text: result.error || 'பதிவைத் திருத்துவதில் தோல்வி ஏற்பட்டது.'
+          text: result?.error || 'பதிவைத் திருத்துவதில் தோல்வி ஏற்பட்டது.'
         });
       }
     } catch (err: any) {
@@ -424,25 +485,29 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
 
     setIsDeleting(true);
     try {
-      const res = await fetch('/api/sheets/delete-bank-row', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: deletingRow.id,
-          spreadsheetId: sheetId,
-          webAppUrl: scriptUrl,
-          type: 'ah',
-          rowIndex: deletingRow.rowIndex,
-          date: deletingRow.date,
-          memberPayment: deletingRow.memberPayment,
-          disbursementAmount: deletingRow.disbursementAmount,
-          bankPayment: deletingRow.bankPayment
-        })
-      });
+      const [apiRes, fsRes] = await Promise.allSettled([
+        fetch('/api/sheets/delete-bank-row', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: deletingRow.id,
+            spreadsheetId: sheetId,
+            webAppUrl: scriptUrl,
+            type: 'ah',
+            rowIndex: deletingRow.rowIndex,
+            date: deletingRow.date,
+            memberPayment: deletingRow.memberPayment,
+            disbursementAmount: deletingRow.disbursementAmount,
+            bankPayment: deletingRow.bankPayment
+          })
+        }).then((r) => r.json()),
+        deletingRow.id ? deleteBankRowFirestore(deletingRow.id, true) : Promise.resolve(false)
+      ]);
 
-      const result = await res.json();
+      const result = apiRes.status === 'fulfilled' ? apiRes.value : null;
+      const fsDeleted = fsRes.status === 'fulfilled' && fsRes.value;
 
-      if (result.success) {
+      if (result?.success || fsDeleted) {
         setStatusMsg({
           type: 'success',
           text: 'பதிவு வெற்றியுடன் நீக்கப்பட்டது!'
@@ -452,7 +517,7 @@ export const AHBankAccountScreen: React.FC<AHBankAccountScreenProps> = ({
       } else {
         setStatusMsg({
           type: 'error',
-          text: result.error || 'பதிவை நீக்குவதில் தோல்வி ஏற்பட்டது.'
+          text: result?.error || 'பதிவை நீக்குவதில் தோல்வி ஏற்பட்டது.'
         });
       }
     } catch (err: any) {

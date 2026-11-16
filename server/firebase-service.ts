@@ -14,6 +14,44 @@ import path from 'path';
 
 let firestoreInstance: any = null;
 
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefinedDeep(item)) as unknown as T;
+  }
+  if (typeof value === 'number') {
+    return (Number.isNaN(value) ? 0 : value) as unknown as T;
+  }
+  if (typeof value === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value as Record<string, any>)) {
+      if (v !== undefined) {
+        cleaned[k] = stripUndefinedDeep(v);
+      }
+    }
+    return cleaned as T;
+  }
+  return value;
+}
+
+function sanitizeFirestoreDocId(raw: string, fallbackPrefix = 'doc'): string {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/\//g, '_')
+    .replace(/[^a-zA-Z0-9_\u0B80-\u0BFF-]/g, '_')
+    .replace(/^__+|__+$/g, '');
+  return cleaned || `${fallbackPrefix}_${Date.now()}`;
+}
+
+function isValidPaduvadaRecord(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const aClass = String(item.aClass || item.memberNo || '').trim();
+  const name = String(item.name || '').trim();
+  return Boolean(aClass || name);
+}
+
 export function getFirebaseDb() {
   if (firestoreInstance) return firestoreInstance;
 
@@ -84,18 +122,23 @@ export async function getBankRowsFromFirestore() {
 
 export async function saveBankRowToFirestore(bankRow: any) {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db || !bankRow) return false;
 
   try {
     const cleanDate = (bankRow.date || 'nodate').replace(/[^a-zA-Z0-9]/g, '_');
-    const docId = bankRow.id && !bankRow.id.startsWith('db-bank-') && !bankRow.id.startsWith('bank-row-')
-      ? bankRow.id 
-      : `bank_${cleanDate}_${bankRow.memberPayment || 0}_${bankRow.disbursementAmount || 0}_${bankRow.bankPayment || 0}`;
-    const rowData = {
+    const rawId = String(bankRow.id || '').trim();
+    const docId = sanitizeFirestoreDocId(
+      rawId && !rawId.startsWith('db-bank-') && !rawId.startsWith('bank-row-')
+        ? rawId
+        : `bank_${cleanDate}_${bankRow.memberPayment || 0}_${bankRow.disbursementAmount || 0}_${bankRow.bankPayment || 0}`,
+      'bank'
+    );
+    const rowData = stripUndefinedDeep({
       ...bankRow,
       id: docId,
-      createdAt: bankRow.createdAt || new Date().toISOString()
-    };
+      createdAt: bankRow.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     await setDoc(doc(db, 'bank_sheet', docId), rowData, { merge: true });
     console.log(`Saved bank row ${docId} to Firebase Firestore.`);
@@ -111,7 +154,7 @@ export async function deleteBankRowFromFirestore(docId: string) {
   if (!db) return false;
 
   try {
-    await deleteDoc(doc(db, 'bank_sheet', docId));
+    await deleteDoc(doc(db, 'bank_sheet', sanitizeFirestoreDocId(docId, 'bank')));
     console.log(`Deleted bank row ${docId} from Firebase Firestore.`);
     return true;
   } catch (err: any) {
@@ -143,18 +186,19 @@ export async function getMembersFromFirestore() {
 
 export async function saveMemberToFirestore(member: any) {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db || !member) return false;
 
   try {
     const memberNo = String(member.memberNo || member.aClass || '').trim();
     if (!memberNo) return false;
 
-    const docId = `mem_${memberNo}`;
-    const data = {
+    const docId = sanitizeFirestoreDocId(`mem_${memberNo}`, 'mem');
+    const data = stripUndefinedDeep({
       ...member,
       memberNo,
+      aClass: member.aClass || memberNo,
       updatedAt: new Date().toISOString()
-    };
+    });
 
     await setDoc(doc(db, 'members', docId), data, { merge: true });
     return true;
@@ -171,7 +215,7 @@ export async function deleteMemberFromFirestore(memberNo: string) {
   try {
     const cleanNo = String(memberNo).trim();
     if (!cleanNo) return false;
-    await deleteDoc(doc(db, 'members', `mem_${cleanNo}`));
+    await deleteDoc(doc(db, 'members', sanitizeFirestoreDocId(`mem_${cleanNo}`, 'mem')));
     return true;
   } catch (err: any) {
     console.error('Error deleting member from Firestore:', err?.message || err);
@@ -191,7 +235,10 @@ export async function getPaduvadaFromFirestore() {
     const snapshot = await getDocs(collection(db, 'paduvada'));
     const items: any[] = [];
     snapshot.forEach((docSnap) => {
-      items.push({ id: docSnap.id, ...docSnap.data() });
+      const record = { id: docSnap.id, ...docSnap.data() };
+      if (isValidPaduvadaRecord(record)) {
+        items.push(record);
+      }
     });
     return items;
   } catch (err: any) {
@@ -202,7 +249,7 @@ export async function getPaduvadaFromFirestore() {
 
 export async function savePaduvadaToFirestore(paduvada: any) {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db || !isValidPaduvadaRecord(paduvada)) return false;
 
   try {
     const clean = (v: any) => String(v || '').trim().replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_');
@@ -212,17 +259,20 @@ export async function savePaduvadaToFirestore(paduvada: any) {
     const targetSurvey = clean(paduvada.surveyNo);
 
     const existingId = String(paduvada.id || '');
-    const docId = existingId && existingId.startsWith('pad_')
-      ? existingId
-      : (targetAClass && targetDisbNo
-          ? `pad_${targetDisbNo}_${targetAClass}_${targetCrop || 'crop'}_${targetSurvey || '0'}`
-          : `pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    const docId = sanitizeFirestoreDocId(
+      existingId && existingId.startsWith('pad_')
+        ? existingId
+        : (targetAClass && targetDisbNo
+            ? `pad_${targetDisbNo}_${targetAClass}_${targetCrop || 'crop'}_${targetSurvey || '0'}`
+            : `pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      'pad'
+    );
 
-    const data = {
+    const data = stripUndefinedDeep({
       ...paduvada,
       id: docId,
       updatedAt: new Date().toISOString()
-    };
+    });
 
     await setDoc(doc(db, 'paduvada', docId), data, { merge: true });
     return true;
@@ -239,7 +289,7 @@ export async function deletePaduvadaFromFirestore(aClass?: string, currentDisbNo
   try {
     let deletedAny = false;
     if (id && !String(id).startsWith('db-') && !String(id).startsWith('sheet-')) {
-      await deleteDoc(doc(db, 'paduvada', String(id)));
+      await deleteDoc(doc(db, 'paduvada', sanitizeFirestoreDocId(String(id), 'pad')));
       deletedAny = true;
     }
 
@@ -327,7 +377,10 @@ export async function getAhPaduvadaFromFirestore() {
     const snapshot = await getDocs(collection(db, 'ah_paduvada'));
     const items: any[] = [];
     snapshot.forEach((docSnap) => {
-      items.push({ id: docSnap.id, ...docSnap.data() });
+      const record = { id: docSnap.id, ...docSnap.data() };
+      if (isValidPaduvadaRecord(record)) {
+        items.push(record);
+      }
     });
     return items;
   } catch (err: any) {
@@ -338,7 +391,7 @@ export async function getAhPaduvadaFromFirestore() {
 
 export async function saveAhPaduvadaToFirestore(paduvada: any) {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db || !isValidPaduvadaRecord(paduvada)) return false;
 
   try {
     const clean = (v: any) => String(v || '').trim().replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_');
@@ -346,17 +399,20 @@ export async function saveAhPaduvadaToFirestore(paduvada: any) {
     const targetDisbNo = clean(paduvada.currentDisbNo);
     const targetLivestock = clean(paduvada.livestockType || paduvada.crop);
     const existingId = String(paduvada.id || '');
-    const docId = existingId && existingId.startsWith('ah_pad_')
-      ? existingId
-      : (targetAClass && targetDisbNo
-          ? `ah_pad_${targetDisbNo}_${targetAClass}_${targetLivestock || 'ah'}`
-          : `ah_pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    const docId = sanitizeFirestoreDocId(
+      existingId && existingId.startsWith('ah_pad_')
+        ? existingId
+        : (targetAClass && targetDisbNo
+            ? `ah_pad_${targetDisbNo}_${targetAClass}_${targetLivestock || 'ah'}`
+            : `ah_pad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      'ah_pad'
+    );
 
-    const data = {
+    const data = stripUndefinedDeep({
       ...paduvada,
       id: docId,
       updatedAt: new Date().toISOString()
-    };
+    });
 
     await setDoc(doc(db, 'ah_paduvada', docId), data, { merge: true });
     return true;
@@ -374,7 +430,7 @@ export async function deleteAhPaduvadaFromFirestore(aClassOrDocId?: string, curr
     let deletedAny = false;
     const explicitId = id || (aClassOrDocId && String(aClassOrDocId).startsWith('ah_pad_') ? aClassOrDocId : '');
     if (explicitId && !String(explicitId).startsWith('db-ah-') && !String(explicitId).startsWith('sheet-ah-')) {
-      await deleteDoc(doc(db, 'ah_paduvada', String(explicitId)));
+      await deleteDoc(doc(db, 'ah_paduvada', sanitizeFirestoreDocId(String(explicitId), 'ah_pad')));
       deletedAny = true;
     }
 
@@ -492,18 +548,23 @@ export async function getAhBankRowsFromFirestore() {
 
 export async function saveAhBankRowToFirestore(bankRow: any) {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db || !bankRow) return false;
 
   try {
     const cleanDate = (bankRow.date || 'nodate').replace(/[^a-zA-Z0-9]/g, '_');
-    const docId = bankRow.id && !bankRow.id.startsWith('db-ah-bank-') && !bankRow.id.startsWith('bank-row-')
-      ? bankRow.id 
-      : `ah_bank_${cleanDate}_${bankRow.memberPayment || 0}_${bankRow.disbursementAmount || 0}_${bankRow.bankPayment || 0}`;
-    const rowData = {
+    const rawId = String(bankRow.id || '').trim();
+    const docId = sanitizeFirestoreDocId(
+      rawId && !rawId.startsWith('db-ah-bank-') && !rawId.startsWith('bank-row-') && !rawId.startsWith('ah-bank-row-')
+        ? rawId
+        : `ah_bank_${cleanDate}_${bankRow.memberPayment || 0}_${bankRow.disbursementAmount || 0}_${bankRow.bankPayment || 0}`,
+      'ah_bank'
+    );
+    const rowData = stripUndefinedDeep({
       ...bankRow,
       id: docId,
-      createdAt: bankRow.createdAt || new Date().toISOString()
-    };
+      createdAt: bankRow.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     await setDoc(doc(db, 'ah_bank_sheet', docId), rowData, { merge: true });
     return true;
@@ -518,7 +579,7 @@ export async function deleteAhBankRowFromFirestore(docId: string) {
   if (!db) return false;
 
   try {
-    await deleteDoc(doc(db, 'ah_bank_sheet', docId));
+    await deleteDoc(doc(db, 'ah_bank_sheet', sanitizeFirestoreDocId(docId, 'ah_bank')));
     return true;
   } catch (err: any) {
     console.error('Error deleting AH bank row from Firestore:', err?.message || err);
@@ -535,7 +596,7 @@ export async function getAppSettingFromFirestore(key: string) {
   if (!db) return null;
 
   try {
-    const docSnap = await getDoc(doc(db, 'settings', key));
+    const docSnap = await getDoc(doc(db, 'settings', sanitizeFirestoreDocId(key, 'setting')));
     if (docSnap.exists()) {
       return docSnap.data().value ?? null;
     }
@@ -551,7 +612,8 @@ export async function saveAppSettingToFirestore(key: string, value: string) {
   if (!db) return false;
 
   try {
-    await setDoc(doc(db, 'settings', key), { key, value, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleanKey = sanitizeFirestoreDocId(key, 'setting');
+    await setDoc(doc(db, 'settings', cleanKey), stripUndefinedDeep({ key: cleanKey, value, updatedAt: new Date().toISOString() }), { merge: true });
     return true;
   } catch (err: any) {
     console.error(`Error saving setting ${key} to Firestore:`, err?.message || err);

@@ -508,10 +508,15 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
       );
       onSetMembers(updatedMembers);
       try {
-        localStorage.setItem('kcc_paccs_members', JSON.stringify(updatedMembers));
+        localStorage.setItem('tu3_paccs_members_v2', JSON.stringify(updatedMembers));
       } catch (err) {
         console.error(err);
       }
+      fetch('/api/sheets/add-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ member: memberObj })
+      }).catch(() => {});
       setSheetStatusMsg({
         type: 'success',
         text: `உறுப்பினர் ${memberObj.name} (A Class: ${memberObj.aClass}) விவரங்கள் வெற்றியுடன் புதுப்பிக்கப்பட்டன!`

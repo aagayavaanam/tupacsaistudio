@@ -27,6 +27,17 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
+import {
+  getPaduvadaListFirestore,
+  savePaduvadaDocFirestore,
+  deletePaduvadaDocFirestore,
+  updateBatchResolutionFirestore,
+  getBankRowsFirestore,
+  getAppSettingFirestore,
+  mergePaduvadaCollections,
+  isValidPaduvadaItem,
+  makePaduvadaCompositeKey
+} from '../services/paduvadaFirestoreService';
 
 function numberToTamilWords(amount: number): string {
   const n = Math.round(Math.abs(amount));
@@ -279,6 +290,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           storageOnly: true
         })
       }).catch(() => {});
+      updateBatchResolutionFirestore(activeDisbKey, undefined, newResNo, true).catch(() => {});
     }
   };
 
@@ -312,6 +324,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           storageOnly: true
         })
       }).catch(() => {});
+      updateBatchResolutionFirestore(activeDisbKey, newDate, resolutionNo, true).catch(() => {});
     }
   };
 
@@ -359,7 +372,8 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
   const [addedItems, setAddedItems] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('tu3_paccs_ah_added_items');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.filter(isValidPaduvadaItem) : [];
     } catch {
       return [];
     }
@@ -371,6 +385,24 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
   const [isDeletingSheet, setIsDeletingSheet] = useState<boolean>(false);
   const [isFetchingSheet, setIsFetchingSheet] = useState<boolean>(false);
 
+  const availableBatches = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of addedItems) {
+      if (!isValidPaduvadaItem(item)) continue;
+      const d = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+      if (!d) continue;
+      counts.set(d, (counts.get(d) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([disbNo, count]) => ({ disbNo, count }))
+      .sort((a, b) => {
+        const na = parseInt(a.disbNo, 10);
+        const nb = parseInt(b.disbNo, 10);
+        if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+        return a.disbNo.localeCompare(b.disbNo);
+      });
+  }, [addedItems]);
+
   // AH Bank Sheet state for Form 7
   const [bankRows, setBankRows] = useState<any[]>([]);
   const [obF, setObF] = useState<string>(() => localStorage.getItem('ah_ob_f') || '');
@@ -378,25 +410,49 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem('tu3_paccs_ah_added_items', JSON.stringify(addedItems));
+      localStorage.setItem('tu3_paccs_ah_added_items', JSON.stringify(addedItems.filter(isValidPaduvadaItem)));
     } catch {}
   }, [addedItems]);
 
   useEffect(() => {
     const fetchBankRowsData = async () => {
       try {
-        const res = await fetch('/api/sheets/get-bank-rows?type=ah');
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.data)) {
-          setBankRows(data.data);
-          if (data.obF !== undefined && data.obF !== '') {
-            setObF(String(data.obF));
-            localStorage.setItem('ah_ob_f', String(data.obF));
-          }
-          if (data.obG !== undefined && data.obG !== '') {
-            setObG(String(data.obG));
-            localStorage.setItem('ah_ob_g', String(data.obG));
-          }
+        const [apiRes, fsRowsRes, fsObFRes, fsObGRes] = await Promise.allSettled([
+          fetch('/api/sheets/get-bank-rows?type=ah').then((r) => r.json()),
+          getBankRowsFirestore(true),
+          getAppSettingFirestore('ah_ob_f'),
+          getAppSettingFirestore('ah_ob_g')
+        ]);
+
+        const apiData = apiRes.status === 'fulfilled' ? apiRes.value : null;
+        const apiRows = (apiData && apiData.success && Array.isArray(apiData.data)) ? apiData.data : [];
+        const fsRows = fsRowsRes.status === 'fulfilled' && Array.isArray(fsRowsRes.value) ? fsRowsRes.value : [];
+
+        const rowMap = new Map<string, any>();
+        for (const r of apiRows) {
+          const key = `${r.date || ''}_${r.memberPayment || 0}_${r.disbursementAmount || 0}_${r.bankPayment || 0}`;
+          rowMap.set(key, r);
+        }
+        for (const r of fsRows) {
+          const key = `${r.date || ''}_${r.memberPayment || 0}_${r.disbursementAmount || 0}_${r.bankPayment || 0}`;
+          rowMap.set(key, { ...(rowMap.get(key) || {}), ...r });
+        }
+        if (rowMap.size > 0) {
+          setBankRows(Array.from(rowMap.values()));
+        }
+
+        const resolvedObF = (apiData?.obF !== undefined && apiData?.obF !== '' ? String(apiData.obF) : '') ||
+          (fsObFRes.status === 'fulfilled' && fsObFRes.value ? String(fsObFRes.value) : '');
+        const resolvedObG = (apiData?.obG !== undefined && apiData?.obG !== '' ? String(apiData.obG) : '') ||
+          (fsObGRes.status === 'fulfilled' && fsObGRes.value ? String(fsObGRes.value) : '');
+
+        if (resolvedObF) {
+          setObF(resolvedObF);
+          localStorage.setItem('ah_ob_f', resolvedObF);
+        }
+        if (resolvedObG) {
+          setObG(resolvedObG);
+          localStorage.setItem('ah_ob_g', resolvedObG);
         }
       } catch (err) {
         console.log('Error fetching bank rows for AH Form 7:', err);
@@ -448,7 +504,100 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
   const [searchedDisbNo, setSearchedDisbNo] = useState<string>('');
   const [lastDisbNo, setLastDisbNo] = useState<string>('0');
 
-  // Fetch members from Google Sheet 'KCC All Paduvada Members' by Disbursement Number
+  const hydrateBatchHeaderFromItems = (batchItems: any[], fallbackDisb?: string) => {
+    if (!batchItems || batchItems.length === 0) return;
+    const first = batchItems[0];
+
+    const fy = batchItems.find((i: any) => i.financialYear && String(i.financialYear).trim() !== '')?.financialYear || first.financialYear;
+    if (fy) handleFinancialYearChange(String(fy));
+
+    const rclNo = batchItems.find((i: any) => i.rclNumber && String(i.rclNumber).trim() !== '')?.rclNumber || first.rclNumber;
+    if (rclNo) handleRclNumberChange(String(rclNo));
+
+    const rclDt = batchItems.find((i: any) => i.rclDate && String(i.rclDate).trim() !== '')?.rclDate || first.rclDate;
+    if (rclDt) handleRclDateChange(String(rclDt));
+
+    const sancAmt = batchItems.find((i: any) => i.sanctionedAmount && String(i.sanctionedAmount).trim() !== '')?.sanctionedAmount || first.sanctionedAmount;
+    if (sancAmt) {
+      setSanctionedAmount(String(sancAmt));
+      try {
+        localStorage.setItem('tu3_paccs_ah_sanctioned_amount', String(sancAmt));
+      } catch {}
+    }
+
+    const offDes = batchItems.find((i: any) => i.officerDesignation && String(i.officerDesignation).trim() !== '')?.officerDesignation || first.officerDesignation;
+    if (offDes) handleOfficerDesignationChange(String(offDes));
+
+    const offName = batchItems.find((i: any) => i.officerName && String(i.officerName).trim() !== '')?.officerName || first.officerName;
+    if (offName) handleOfficerNameChange(String(offName));
+
+    const curDisb = String(batchItems.find((i: any) => i.currentDisbNo && String(i.currentDisbNo).trim() !== '')?.currentDisbNo || first.currentDisbNo || fallbackDisb || '').trim();
+    if (curDisb) {
+      setCurrentDisbNo(curDisb);
+      try {
+        localStorage.setItem('tu3_paccs_ah_current_disb_no', curDisb);
+      } catch {}
+    }
+
+    const resNo = batchItems.find((i: any) => i.resolutionNo && String(i.resolutionNo).trim() !== '')?.resolutionNo || first.resolutionNo;
+    if (resNo) {
+      setResolutionNo(String(resNo));
+      try {
+        localStorage.setItem('tu3_paccs_ah_res_no', String(resNo));
+      } catch {}
+    }
+
+    let savedDatesMap: Record<string, string> = {};
+    try {
+      savedDatesMap = JSON.parse(localStorage.getItem('tu3_paccs_ah_res_dates') || '{}');
+    } catch {}
+    const savedLocalResDate = curDisb ? savedDatesMap[curDisb] : '';
+    const sheetResDate = batchItems.find((i: any) => i.resolutionDate && String(i.resolutionDate).trim() !== '')?.resolutionDate || first.resolutionDate;
+    const effectiveBatchDate = savedLocalResDate || sheetResDate || '';
+    if (effectiveBatchDate) {
+      setResolutionDate(String(effectiveBatchDate));
+      if (!savedLocalResDate && curDisb) {
+        savedDatesMap[curDisb] = String(effectiveBatchDate);
+        try {
+          localStorage.setItem('tu3_paccs_ah_res_dates', JSON.stringify(savedDatesMap));
+        } catch {}
+      }
+    }
+  };
+
+  const syncMissingItemsToFirestore = async (allItems: any[], fsItems: any[]): Promise<any[]> => {
+    const fsKeys = new Set(fsItems.map((i) => makePaduvadaCompositeKey(i, true)));
+    const missingFromFs = allItems.filter((item) => isValidPaduvadaItem(item) && !fsKeys.has(makePaduvadaCompositeKey(item, true)));
+    if (missingFromFs.length === 0) return [];
+
+    const uploaded: any[] = [];
+    for (const item of missingFromFs) {
+      try {
+        const [fsSaved] = await Promise.allSettled([
+          savePaduvadaDocFirestore(item, true),
+          fetch('/api/sheets/add-paduvada', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storageOnly: true,
+              type: 'ah',
+              paduvadaData: item,
+              aClass: item.aClass,
+              currentDisbNo: item.currentDisbNo,
+              crop: item.livestockType || item.crop,
+              id: item.id
+            })
+          })
+        ]);
+        if (fsSaved.status === 'fulfilled' && fsSaved.value) {
+          uploaded.push(fsSaved.value);
+        }
+      } catch {}
+    }
+    return uploaded;
+  };
+
+  // Search AH members from Storage (Firebase Firestore + SQLite DB) by Disbursement Number (or 'all')
   const handleSearchByDisbNo = async (overrideDisbNo?: string) => {
     const activeDisbNo = (overrideDisbNo !== undefined ? overrideDisbNo : filterDisbNo).trim();
     if (overrideDisbNo !== undefined) {
@@ -463,59 +612,101 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       return;
     }
 
+    const isAll = activeDisbNo.toLowerCase() === 'all';
     setSearchedDisbNo(activeDisbNo);
     setIsFetchingSheet(true);
     setSheetStatusMsg({
       type: 'info',
-      text: `பட்டுவாடா எண் '${activeDisbNo}' அடிப்படையில் சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) தகவல்கள் பெறப்படுகின்றன...`
+      text: isAll
+        ? 'சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) அனைத்து AH பட்டுவாடா தகவல்களும் பெறப்படுகின்றன...'
+        : `பட்டுவாடா எண் '${activeDisbNo}' அடிப்படையில் சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) தகவல்கள் பெறப்படுகின்றன...`
     });
 
     try {
-      const url = `/api/sheets/get-paduvada?type=ah&storageOnly=true&disbNo=${encodeURIComponent(activeDisbNo)}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const apiDisbParam = isAll ? '' : encodeURIComponent(activeDisbNo);
+      const url = `/api/sheets/get-paduvada?type=ah&storageOnly=true&disbNo=${apiDisbParam}`;
 
-      if (data.success) {
-        if (data.maxDisbNo) {
-          setLastDisbNo(data.maxDisbNo);
+      const [apiResult, fsResult, allApiResult] = await Promise.allSettled([
+        fetch(url).then((r) => r.json()),
+        getPaduvadaListFirestore(true),
+        isAll ? Promise.resolve(null) : fetch('/api/sheets/get-paduvada?type=ah&storageOnly=true&disbNo=').then((r) => r.json())
+      ]);
+
+      const apiData = apiResult.status === 'fulfilled' ? apiResult.value : null;
+      const allApiData = allApiResult.status === 'fulfilled' ? allApiResult.value : apiData;
+      const fsItems = fsResult.status === 'fulfilled' && Array.isArray(fsResult.value) ? fsResult.value : [];
+      const serverAllItems = (allApiData && allApiData.success && Array.isArray(allApiData.data))
+        ? allApiData.data.filter(isValidPaduvadaItem)
+        : ((apiData && apiData.success && Array.isArray(apiData.data)) ? apiData.data.filter(isValidPaduvadaItem) : []);
+
+      let savedDatesMap: Record<string, string> = {};
+      try {
+        savedDatesMap = JSON.parse(localStorage.getItem('tu3_paccs_ah_res_dates') || '{}');
+      } catch {}
+
+      let localValid: any[] = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('tu3_paccs_ah_added_items') || '[]');
+        localValid = Array.isArray(stored) ? stored.filter(isValidPaduvadaItem) : [];
+      } catch {}
+      localValid = mergePaduvadaCollections(localValid, addedItems.filter(isValidPaduvadaItem), true);
+
+      const cloudMerged = mergePaduvadaCollections(serverAllItems, fsItems, true);
+      let combinedAll = mergePaduvadaCollections(localValid, cloudMerged, true);
+
+      const uploaded = await syncMissingItemsToFirestore(combinedAll, fsItems);
+      if (uploaded.length > 0) {
+        combinedAll = mergePaduvadaCollections(combinedAll, uploaded, true);
+      }
+
+      const normalizedAll = combinedAll.map((row: any) => {
+        const rowDisb = String(row.currentDisbNo || '').trim();
+        const savedDt = rowDisb ? savedDatesMap[rowDisb] : '';
+        if (savedDt && !row.resolutionDate) {
+          return { ...row, resolutionDate: savedDt };
         }
-        if (Array.isArray(data.data)) {
-          setAddedItems(data.data);
-          if (data.data.length > 0) {
-            const first = data.data[0];
-            const rclNo = data.data.find((i: any) => i.rclNumber && String(i.rclNumber).trim() !== '')?.rclNumber || first.rclNumber;
-            if (rclNo) setRclNumber(rclNo);
+        return row;
+      });
 
-            const rclDt = data.data.find((i: any) => i.rclDate && String(i.rclDate).trim() !== '')?.rclDate || first.rclDate;
-            if (rclDt) setRclDate(rclDt);
+      setAddedItems(normalizedAll);
 
-            const sancAmt = data.data.find((i: any) => i.sanctionedAmount && String(i.sanctionedAmount).trim() !== '')?.sanctionedAmount || first.sanctionedAmount;
-            if (sancAmt) setSanctionedAmount(sancAmt);
+      let maxNo = parseInt(String(apiData?.maxDisbNo || allApiData?.maxDisbNo || '0'), 10) || 0;
+      for (const item of normalizedAll) {
+        const n = parseInt(String(item.currentDisbNo || '').trim(), 10);
+        if (!isNaN(n) && n > maxNo) maxNo = n;
+      }
+      if (maxNo > 0) setLastDisbNo(String(maxNo));
 
-            const curDisb = data.data.find((i: any) => i.currentDisbNo && String(i.currentDisbNo).trim() !== '')?.currentDisbNo || first.currentDisbNo || activeDisbNo;
-            if (curDisb) setCurrentDisbNo(curDisb);
+      const matchedItems = isAll
+        ? normalizedAll
+        : normalizedAll.filter((item) => {
+            const itemDisb = String(item.currentDisbNo || (item as any).disbNo || '').trim();
+            const targetNum = parseInt(activeDisbNo, 10);
+            const itemNum = parseInt(itemDisb, 10);
+            return itemDisb === activeDisbNo || (!isNaN(targetNum) && !isNaN(itemNum) && itemNum === targetNum);
+          });
 
-            const resNo = data.data.find((i: any) => i.resolutionNo && String(i.resolutionNo).trim() !== '')?.resolutionNo || first.resolutionNo;
-            if (resNo) setResolutionNo(resNo);
-
-            const resDate = data.data.find((i: any) => i.resolutionDate && String(i.resolutionDate).trim() !== '')?.resolutionDate || first.resolutionDate;
-            if (resDate) setResolutionDate(resDate);
-
-            setSheetStatusMsg({
-              type: 'success',
-              text: `சேமிப்பகத்தில் (Firebase & SQLite DB) இருந்து பட்டுவாடா எண் '${activeDisbNo}' க்கு உரிய ${data.data.length} உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
-            });
-          } else {
-            setSheetStatusMsg({
-              type: 'error',
-              text: `சேமிப்பகத்தில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் யாரும் கிடைக்கவில்லை.`
-            });
-          }
-        }
-      } else if (data.error) {
+      if (matchedItems.length > 0) {
+        hydrateBatchHeaderFromItems(matchedItems, isAll ? String(matchedItems[0].currentDisbNo || '') : activeDisbNo);
+        setSheetStatusMsg({
+          type: 'success',
+          text: isAll
+            ? `சேமிப்பகத்தில் (Firebase & SQLite DB) இருந்து மொத்தம் ${matchedItems.length} AH உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
+            : `சேமிப்பகத்தில் (Firebase & SQLite DB) இருந்து பட்டுவாடா எண் '${activeDisbNo}' க்கு உரிய ${matchedItems.length} உறுப்பினர்களின் தகவல்கள் பெறப்பட்டன!`
+        });
+      } else {
+        const availNos = Array.from(
+          new Set(
+            normalizedAll
+              .map((i) => String(i.currentDisbNo || '').trim())
+              .filter(Boolean)
+          )
+        );
         setSheetStatusMsg({
           type: 'error',
-          text: data.error
+          text: availNos.length > 0
+            ? `சேமிப்பகத்தில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் கிடைக்கவில்லை. (உள்ள பட்டுவாடா எண்கள்: ${availNos.join(', ')})`
+            : `சேமிப்பகத்தில் பட்டுவாடா எண் '${activeDisbNo}' கொண்ட உறுப்பினர்கள் யாரும் கிடைக்கவில்லை.`
         });
       }
     } catch (err: any) {
@@ -599,27 +790,106 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
   };
 
   // Fetch highest disbursement number and records from Storage (Firebase & SQLite DB)
-  const fetchLastDisbNo = async () => {
+  const fetchLastDisbNo = async (showFeedback = false) => {
+    if (showFeedback) {
+      setIsFetchingSheet(true);
+      setSheetStatusMsg({
+        type: 'info',
+        text: 'மேகக்கணி சேமிப்பகத்துடன் (Firebase Cloud & Local DB) AH தகவல்கள் ஒத்திசைக்கப்படுகின்றன...'
+      });
+    }
     try {
-      const url = `/api/sheets/get-paduvada?type=ah&storageOnly=true&disbNo=`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success) {
-        if (data.maxDisbNo) {
-          setLastDisbNo(data.maxDisbNo);
+      const [apiRes, fsRes] = await Promise.allSettled([
+        fetch('/api/sheets/get-paduvada?type=ah&storageOnly=true&disbNo=').then((r) => r.json()),
+        getPaduvadaListFirestore(true)
+      ]);
+
+      const apiData = apiRes.status === 'fulfilled' ? apiRes.value : null;
+      const serverItems = (apiData && apiData.success && Array.isArray(apiData.data))
+        ? apiData.data.filter(isValidPaduvadaItem)
+        : [];
+      const fsItems = fsRes.status === 'fulfilled' && Array.isArray(fsRes.value) ? fsRes.value : [];
+
+      let localItems: any[] = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('tu3_paccs_ah_added_items') || '[]');
+        localItems = Array.isArray(stored) ? stored.filter(isValidPaduvadaItem) : [];
+      } catch {}
+
+      const cloudMerged = mergePaduvadaCollections(serverItems, fsItems, true);
+      let mergedAll = mergePaduvadaCollections(localItems, cloudMerged, true);
+
+      const uploaded = await syncMissingItemsToFirestore(mergedAll, fsItems);
+      if (uploaded.length > 0) {
+        mergedAll = mergePaduvadaCollections(mergedAll, uploaded, true);
+      }
+
+      let savedDatesMap: Record<string, string> = {};
+      try {
+        savedDatesMap = JSON.parse(localStorage.getItem('tu3_paccs_ah_res_dates') || '{}');
+      } catch {}
+
+      const syncedItems = mergedAll.map((row: any) => {
+        const rowDisb = String(row.currentDisbNo || '').trim();
+        return (rowDisb && savedDatesMap[rowDisb] && !row.resolutionDate)
+          ? { ...row, resolutionDate: savedDatesMap[rowDisb] }
+          : row;
+      });
+
+      if (syncedItems.length > 0 || fsItems.length > 0 || serverItems.length > 0) {
+        setAddedItems(syncedItems);
+      }
+
+      let maxNo = parseInt(String(apiData?.maxDisbNo || '0'), 10) || 0;
+      for (const item of syncedItems) {
+        const n = parseInt(String(item.currentDisbNo || '').trim(), 10);
+        if (!isNaN(n) && n > maxNo) maxNo = n;
+      }
+      const effectiveMaxStr = maxNo > 0 ? String(maxNo) : '0';
+      setLastDisbNo(effectiveMaxStr);
+
+      if (syncedItems.length > 0 && (searchedDisbNo || '').trim() === '') {
+        const defaultBatch = maxNo > 0
+          ? String(maxNo)
+          : String(syncedItems[0].currentDisbNo || '').trim();
+        if (defaultBatch) {
+          setFilterDisbNo(defaultBatch);
+          setSearchedDisbNo(defaultBatch);
+          const batchMatched = syncedItems.filter((item) => {
+            const d = String(item.currentDisbNo || '').trim();
+            return d === defaultBatch || parseInt(d, 10) === parseInt(defaultBatch, 10);
+          });
+          hydrateBatchHeaderFromItems(batchMatched.length > 0 ? batchMatched : syncedItems, defaultBatch);
         }
-        if (Array.isArray(data.data) && data.data.length > 0) {
-          setAddedItems(data.data);
-        }
+      }
+
+      if (showFeedback) {
+        setSheetStatusMsg({
+          type: 'success',
+          text: syncedItems.length > 0
+            ? `மேகக்கணி சேமிப்பகத்திலிருந்து ${syncedItems.length} AH பதிவுகள் ஒத்திசைக்கப்பட்டன!`
+            : 'மேகக்கணி சேமிப்பகம் புதுப்பிக்கப்பட்டது (பதிவுகள் எதுவும் இல்லை).'
+        });
       }
     } catch (err) {
       console.error('Fetch max disb no error:', err);
+      if (showFeedback) {
+        setSheetStatusMsg({
+          type: 'error',
+          text: 'மேகக்கணி சேமிப்பகத்தை புதுப்பிப்பதில் பிழை ஏற்பட்டது.'
+        });
+      }
+    } finally {
+      if (showFeedback) {
+        setIsFetchingSheet(false);
+        setTimeout(() => setSheetStatusMsg(null), 6000);
+      }
     }
   };
 
   // Initial load from Storage
   useEffect(() => {
-    fetchLastDisbNo();
+    fetchLastDisbNo(false);
   }, []);
 
   const getMemberForItem = (item: any): LoanMember | undefined => {
@@ -4743,40 +5013,74 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
     };
 
     // Save/Append or Update directly in Firebase & SQLite Storage (No Google Sheets)
+    const activeDisbKey = String(currentDisbNo || '').trim();
+    const activeResDate = String(resolutionDate || '').trim();
+    if (activeDisbKey && activeResDate) {
+      try {
+        const datesMap = JSON.parse(localStorage.getItem('tu3_paccs_ah_res_dates') || '{}');
+        datesMap[activeDisbKey] = activeResDate;
+        localStorage.setItem('tu3_paccs_ah_res_dates', JSON.stringify(datesMap));
+        localStorage.setItem('tu3_paccs_ah_res_date_global', activeResDate);
+        localStorage.setItem('tu3_paccs_ah_current_disb_no', activeDisbKey);
+        if (resolutionNo) localStorage.setItem('tu3_paccs_ah_res_no', resolutionNo);
+      } catch {}
+    }
+
     setIsSubmittingToSheet(true);
     try {
       const endpoint = editingItem ? '/api/sheets/update-paduvada' : '/api/sheets/add-paduvada';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storageOnly: true,
-          type: 'ah',
-          paduvadaData: {
-            ...paduvadaData,
+      const payloadWithId = { ...paduvadaData, id: editingItem?.id || newItem.id };
+      const [apiPromise, fsPromise] = await Promise.allSettled([
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storageOnly: true,
+            type: 'ah',
+            paduvadaData: {
+              ...paduvadaData,
+              id: editingItem?.id
+            },
+            rowIndex: editingItem?.rowIndex,
+            aClass: selectedMember.aClass || selectedMember.memberNo,
+            currentDisbNo,
+            crop: effectiveCrop,
             id: editingItem?.id
-          },
-          rowIndex: editingItem?.rowIndex,
-          aClass: selectedMember.aClass || selectedMember.memberNo,
-          currentDisbNo,
-          crop: effectiveCrop,
-          id: editingItem?.id
-        })
-      });
-      const result = await response.json();
-      if (result.success) {
+          })
+        }).then((r) => r.json()),
+        savePaduvadaDocFirestore(payloadWithId, true)
+      ]);
+
+      const result = apiPromise.status === 'fulfilled' ? apiPromise.value : null;
+      const fsSaved = fsPromise.status === 'fulfilled' ? fsPromise.value : null;
+      const canonicalId = fsSaved?.id || result?.id;
+      if (canonicalId) {
+        setAddedItems((prev) =>
+          prev.map((item) =>
+            item.id === newItem.id ||
+            (makePaduvadaCompositeKey(item, true) === makePaduvadaCompositeKey(newItem, true))
+              ? { ...item, id: canonicalId }
+              : item
+          )
+        );
+      }
+
+      if (result?.success || fsSaved) {
         const actionWord = editingItem ? 'திருத்தப்பட்டது' : 'சேமிக்கப்பட்டது';
-        setSuccessMsg(`${selectedMember.name} (A Class: ${newItem.aClass}) தகவல்கள் சேமிப்பகத்தில் (Firebase & SQLite DB) வெற்றியுடன் ${actionWord}!`);
+        const cloudSynced = Boolean(fsSaved || result?.storageSaved?.firestore);
+        setSuccessMsg(`${selectedMember.name} (A Class: ${newItem.aClass}) தகவல்கள் ${cloudSynced ? 'மேகக்கணி சேமிப்பகத்தில் (Firebase Cloud & SQLite DB)' : 'உள்ளூர் சேமிப்பகத்தில்'} வெற்றியுடன் ${actionWord}!`);
         setSheetStatusMsg({
           type: 'success',
-          text: `சேமிப்பகத்தில் (Firebase & SQLite DB) AH தகவல் ${actionWord}!`
+          text: cloudSynced
+            ? `மேகக்கணி சேமிப்பகத்தில் (Firebase Cloud & SQLite DB) AH தகவல் ${actionWord}!`
+            : `உள்ளூர் தரவுத்தளத்தில் AH தகவல் ${actionWord}!`
         });
-        fetchLastDisbNo();
+        fetchLastDisbNo(false);
       } else {
-        setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது (${result.error || ''})`);
+        setSuccessMsg(`${selectedMember.name} உள்ளூர் பட்டியலில் புதுப்பிக்கப்பட்டது (${result?.error || ''})`);
         setSheetStatusMsg({
           type: 'error',
-          text: result.details || result.error || 'சேமிப்பகத்தில் தகவலைப் பதிவிடுவதில் பிழை.'
+          text: result?.details || result?.error || 'சேமிப்பகத்தில் தகவலைப் பதிவிடுவதில் பிழை.'
         });
       }
     } catch (err: any) {
@@ -4828,29 +5132,43 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
     setIsDeletingSheet(true);
     try {
-      const response = await fetch('/api/sheets/delete-paduvada', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storageOnly: true,
-          type: 'ah',
-          aClass: item.aClass,
-          currentDisbNo: item.currentDisbNo || searchedDisbNo || filterDisbNo,
-          rowIndex: item.rowIndex,
-          crop: item.crop || item.livestockType,
-          id: item.id
-        })
-      });
-      const result = await response.json();
-      if (result.success) {
+      const targetDisb = item.currentDisbNo || searchedDisbNo || filterDisbNo;
+      const targetCrop = item.crop || item.livestockType;
+      const [apiDel, fsDel] = await Promise.allSettled([
+        fetch('/api/sheets/delete-paduvada', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storageOnly: true,
+            type: 'ah',
+            aClass: item.aClass,
+            currentDisbNo: targetDisb,
+            rowIndex: item.rowIndex,
+            crop: targetCrop,
+            id: item.id
+          })
+        }).then((r) => r.json()),
+        deletePaduvadaDocFirestore(
+          {
+            id: item.id,
+            aClass: item.aClass,
+            currentDisbNo: targetDisb,
+            crop: targetCrop
+          },
+          true
+        )
+      ]);
+      const result = apiDel.status === 'fulfilled' ? apiDel.value : null;
+      const fsDeleted = fsDel.status === 'fulfilled' && fsDel.value;
+      if (result?.success || fsDeleted) {
         setSuccessMsg(`${item.name} சேமிப்பகத்திலிருந்தும் (Firebase & SQLite DB) பட்டியலிலிருந்தும் வெற்றியுடன் நீக்கப்பட்டார்.`);
         setSheetStatusMsg({
           type: 'success',
           text: `சேமிப்பகத்திலிருந்து (Firebase & SQLite DB) நபர் வெற்றியுடன் நீக்கப்பட்டார்!`
         });
-        fetchLastDisbNo();
+        fetchLastDisbNo(false);
       } else {
-        setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார் (${result.error || ''})`);
+        setSuccessMsg(`${item.name} உள்ளூர் பட்டியலிலிருந்து நீக்கப்பட்டார் (${result?.error || ''})`);
       }
     } catch (err) {
       console.error('Delete storage error:', err);
@@ -5670,42 +5988,92 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           </div>
           <div className="flex items-center gap-2.5 self-start sm:self-auto">
             <div className="text-xs font-bold text-[#007A4D] bg-[#D1EAE0] px-3 py-1.5 rounded-xl border border-[#007A4D]/20">
-              {searchedDisbNo.trim() 
-                ? `${displayItems.length} உறுப்பினர்கள் (பட்டுவாடா எண்: ${searchedDisbNo})` 
+              {searchedDisbNo.trim()
+                ? searchedDisbNo.trim().toLowerCase() === 'all'
+                  ? `${displayItems.length} உறுப்பினர்கள் (அனைத்து பட்டுவாடாக்களும்)`
+                  : `${displayItems.length} உறுப்பினர்கள் (பட்டுவாடா எண்: ${searchedDisbNo})`
                 : 'பட்டுவாடா எண் உள்ளிட்டு தேடவும்'}
             </div>
           </div>
         </div>
 
-        {/* Control Bar: பட்டுவாடா எண், தேடு, கடைசி பட்டுவாடா எண் */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FAF9F5] p-3 rounded-xl border border-[#E2E2DC]">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-stone-700">பட்டுவாடா எண்:</label>
-            <input
-              type="text"
-              value={filterDisbNo}
-              onChange={(e) => setFilterDisbNo(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchByDisbNo(); } }}
-              placeholder="எ.கா. 1"
-              className="w-24 bg-white border border-stone-300 text-stone-900 font-mono font-bold text-xs px-2.5 py-1.5 rounded-lg focus:ring-2 focus:ring-[#007A4D] outline-none text-center shadow-2xs"
-            />
-            <button
-              type="button"
-              disabled={isFetchingSheet}
-              onClick={() => handleSearchByDisbNo()}
-              className="bg-[#007A4D] hover:bg-[#00633E] disabled:opacity-50 text-white font-black text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
-            >
-              {isFetchingSheet ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Search className="w-3.5 h-3.5 text-white" />}
-              <span>தேடு</span>
-            </button>
+        {/* Control Bar: பட்டுவாடா எண், தேடு, அனைத்தும், மேகக்கணி புதுப்பிப்பு, கடைசி பட்டுவாடா எண் */}
+        <div className="bg-[#FAF9F5] p-3 rounded-xl border border-[#E2E2DC] space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs font-bold text-stone-700">பட்டுவாடா எண்:</label>
+              <input
+                type="text"
+                value={filterDisbNo}
+                onChange={(e) => setFilterDisbNo(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchByDisbNo(); } }}
+                placeholder="எ.கா. 1"
+                className="w-24 bg-white border border-stone-300 text-stone-900 font-mono font-bold text-xs px-2.5 py-1.5 rounded-lg focus:ring-2 focus:ring-[#007A4D] outline-none text-center shadow-2xs"
+              />
+              <button
+                type="button"
+                disabled={isFetchingSheet}
+                onClick={() => handleSearchByDisbNo()}
+                className="bg-[#007A4D] hover:bg-[#00633E] disabled:opacity-50 text-white font-black text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
+              >
+                {isFetchingSheet ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Search className="w-3.5 h-3.5 text-white" />}
+                <span>தேடு</span>
+              </button>
+              <button
+                type="button"
+                disabled={isFetchingSheet}
+                onClick={() => handleSearchByDisbNo('all')}
+                className={`font-black text-xs px-3 py-1.5 rounded-lg border transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50 ${
+                  searchedDisbNo.trim().toLowerCase() === 'all'
+                    ? 'bg-stone-800 text-white border-stone-800'
+                    : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-300'
+                }`}
+              >
+                அனைத்தும் ({addedItems.filter(isValidPaduvadaItem).length})
+              </button>
+              <button
+                type="button"
+                disabled={isFetchingSheet}
+                onClick={() => fetchLastDisbNo(true)}
+                className="bg-white hover:bg-[#D1EAE0] text-[#007A4D] border border-[#007A4D]/30 font-black text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+                title="மேகக்கணி சேமிப்பகத்திலிருந்து (Firebase Cloud) தகவல்களைப் புதுப்பி"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingSheet ? 'animate-spin' : ''}`} />
+                <span>மேகக்கணி புதுப்பிப்பு</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-stone-700">
+              <span className="font-semibold">கடைசி பட்டுவாடா எண்:</span>
+              <span className="font-mono font-extrabold text-[#007A4D] bg-white px-3 py-1 rounded-lg border border-[#E2E2DC] shadow-2xs">
+                {lastDisbNo}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-stone-700">
-            <span className="font-semibold">கடைசி பட்டுவாடா எண்:</span>
-            <span className="font-mono font-extrabold text-[#007A4D] bg-white px-3 py-1 rounded-lg border border-[#E2E2DC] shadow-2xs">
-              {lastDisbNo}
-            </span>
-          </div>
+          {availableBatches.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#E2E2DC]">
+              <span className="text-[11px] font-bold text-stone-600 mr-1">சேமிப்பக பட்டுவாடா எண்கள்:</span>
+              {availableBatches.map((b) => {
+                const isSelected = searchedDisbNo.trim() === b.disbNo || (!isNaN(parseInt(searchedDisbNo, 10)) && parseInt(searchedDisbNo, 10) === parseInt(b.disbNo, 10) && searchedDisbNo.trim().toLowerCase() !== 'all');
+                return (
+                  <button
+                    key={b.disbNo}
+                    type="button"
+                    disabled={isFetchingSheet}
+                    onClick={() => handleSearchByDisbNo(b.disbNo)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#007A4D] text-white border-[#007A4D] shadow-2xs'
+                        : 'bg-white hover:bg-[#D1EAE0]/60 text-stone-800 border-stone-300'
+                    }`}
+                  >
+                    பட்டுவாடா {b.disbNo} ({b.count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Sheet Sync Status Banner */}
@@ -5744,12 +6112,17 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                   <td colSpan={9} className="p-8 text-center text-stone-500 font-semibold">
                     {!searchedDisbNo.trim() ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4">
-                        <span className="text-stone-700 font-bold text-sm">பட்டுவாடா எண்ணை உள்ளிட்டு 'தேடு' பொத்தானை அழுத்தவும்</span>
-                        <span className="text-xs text-stone-500">பட்டுவாடா எண் உள்ளிட்டு 'தேடு' பொத்தானை அழுத்தினால் மட்டுமே அந்த பட்டுவாடாவிற்குரிய நபர்களின் பட்டியல் காட்டப்படும்.</span>
+                        <span className="text-stone-700 font-bold text-sm">பட்டுவாடா எண்ணை உள்ளிட்டு 'தேடு' பொத்தானை அழுத்தவும் அல்லது மேலுள்ள பட்டுவாடா எண்ணை கிளிக் செய்யவும்</span>
+                        <span className="text-xs text-stone-500">சேமிப்பகத்தில் உள்ள நபர்களின் பட்டியல் இங்கே காட்டப்படும்.</span>
                       </div>
                     ) : (
-                      <div className="py-4">
-                        <span className="text-stone-700 font-bold text-sm">பட்டுவாடா எண் '{searchedDisbNo}' க்கு உறுப்பினர்கள் யாரும் பட்டியலில் இல்லை</span>
+                      <div className="py-4 space-y-1">
+                        <span className="text-stone-700 font-bold text-sm block">பட்டுவாடா எண் '{searchedDisbNo}' க்கு உறுப்பினர்கள் யாரும் பட்டியலில் இல்லை</span>
+                        {availableBatches.length > 0 && (
+                          <span className="text-xs text-[#007A4D] font-bold block">
+                            சேமிப்பகத்தில் உள்ள பட்டுவாடா எண்கள்: {availableBatches.map((b) => `${b.disbNo} (${b.count})`).join(', ')}
+                          </span>
+                        )}
                       </div>
                     )}
                   </td>
