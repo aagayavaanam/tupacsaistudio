@@ -77,7 +77,6 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
   const [borrowerMdccKcc, setBorrowerMdccKcc] = useState<string>('');
   const [borrowerErp, setBorrowerErp] = useState<string>('');
   const [borrowerSb, setBorrowerSb] = useState<string>('');
-  const [borrowerPan, setBorrowerPan] = useState<string>('');
   const [borrowerRationCard, setBorrowerRationCard] = useState<string>('');
 
   // Guarantor personal fields - EMPTY ON START
@@ -101,7 +100,6 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
     setBorrowerMdccKcc('');
     setBorrowerErp('');
     setBorrowerSb('');
-    setBorrowerPan('');
     setBorrowerRationCard('');
     setBorrowerSearchStatus('');
   };
@@ -786,7 +784,6 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
         if (found.mdcc || found.kccAccountNo) setBorrowerMdccKcc(found.mdcc || found.kccAccountNo || '');
         if (found.erpNo || found.erp) setBorrowerErp(found.erpNo || found.erp || '');
         if (found.sbAccountNo || found.sbNo) setBorrowerSb(found.sbAccountNo || found.sbNo || '');
-        if (found.panNo || found.pan) setBorrowerPan(found.panNo || found.pan || '');
         if (found.smartCardNo || found.rationCardNo) setBorrowerRationCard(found.smartCardNo || found.rationCardNo || '');
       }
     }
@@ -1689,14 +1686,6 @@ export const KCCApplicationScreen: React.FC<KCCApplicationScreenProps> = ({
                   <td className="border border-black py-1.5 px-2.5 font-bold text-stone-800">கடன்தாரர் சங்க சேமிப்பு எண்</td>
                   <td className="border border-black py-1.5 px-2 font-mono font-black text-[14px] text-black">
                     {borrowerSb ? `SB  ${borrowerSb}` : ''}
-                  </td>
-                  <td className="border border-black py-1.5 px-2"></td>
-                  <td className="border border-black py-1.5 px-2"></td>
-                </tr>
-                <tr className="h-7.5">
-                  <td className="border border-black py-1.5 px-2.5 font-bold text-stone-800">கடன்தாரர் பான் எண்</td>
-                  <td className="border border-black py-1.5 px-2 font-mono font-black text-[13.5px] text-black">
-                    {borrowerPan}
                   </td>
                   <td className="border border-black py-1.5 px-2"></td>
                   <td className="border border-black py-1.5 px-2"></td>
