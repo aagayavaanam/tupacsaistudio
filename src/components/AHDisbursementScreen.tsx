@@ -1856,12 +1856,12 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
       const livestockRowsHtml = livestockRows.map((r, idx) => `
         <tr style="height: 32px; text-align: center;">
-          <td style="border: 1px solid black; font-weight: bold; padding: 4px;">${idx + 1}</td>
-          <td style="border: 1px solid black; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.memberCount}</td>
-          <td style="border: 1px solid black; font-size: 13px; font-weight: bold; padding: 4px 8px;">${r.type}</td>
-          <td style="border: 1px solid black; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.livestockCount}</td>
-          <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
-          <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid black; font-size: 14px; font-weight: bold; padding: 4px;">${idx + 1}</td>
+          <td style="border: 1px solid black; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.memberCount}</td>
+          <td style="border: 1px solid black; font-size: 15px; font-weight: bold; padding: 4px 8px;">${r.type}</td>
+          <td style="border: 1px solid black; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${r.livestockCount}</td>
+          <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${r.loanAmount.toLocaleString('en-IN')}</td>
         </tr>
       `).join('');
 
@@ -1921,13 +1921,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </tr>
               <tr style="height: 28px;">
                 <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">தீர்மான எண்</td>
-                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13.5px; width: 11%; text-align: center;">${effectiveResNo}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 15.5px; width: 11%; text-align: center;">${effectiveResNo}</td>
                 <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">தீர்மான தேதி</td>
-                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13px; width: 15%; text-align: center;">${effectiveResDate}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 15px; width: 15%; text-align: center;">${effectiveResDate}</td>
                 <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா எண்</td>
-                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13.5px; width: 11%; text-align: center;">${activeDisbNumber}</td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 15.5px; width: 11%; text-align: center;">${activeDisbNumber}</td>
                 <td style="border: 1px solid black; padding: 4px 6px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா தேதி</td>
-                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 13px; width: 7%; text-align: center;"></td>
+                <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-family: monospace; font-size: 15px; width: 7%; text-align: center;"></td>
               </tr>
             </table>
 
@@ -1946,32 +1946,32 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <tr style="height: 28px;">
                   <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">1</td>
                   <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">புதிய அங்கத்தினர்கள்</td>
-                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcNewCount > 0 ? calcNewCount : (calcNewAmt > 0 ? 1 : 0)}</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcNewAmt > 0 ? calcNewAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcNewCount > 0 ? calcNewCount : (calcNewAmt > 0 ? 1 : 0)}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcNewAmt > 0 ? calcNewAmt.toLocaleString('en-IN') : 0}</td>
                   <td style="border: 1px solid black; width: 20%; padding: 4px;"></td>
                   <td style="border: 1px solid black; width: 20%; padding: 4px;"></td>
                 </tr>
                 <tr style="height: 28px;">
                   <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">2</td>
                   <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">SC/ST அங்கத்தினர்கள்</td>
-                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcScstCount > 0 ? calcScstCount : 0}</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcScstAmt > 0 ? calcScstAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcScstCount > 0 ? calcScstCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcScstAmt > 0 ? calcScstAmt.toLocaleString('en-IN') : 0}</td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                 </tr>
                 <tr style="height: 28px;">
                   <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">3</td>
                   <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">இதர அங்கத்தினர்கள்</td>
-                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcOthersCount > 0 ? calcOthersCount : 0}</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcOthersAmt > 0 ? calcOthersAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcOthersCount > 0 ? calcOthersCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcOthersAmt > 0 ? calcOthersAmt.toLocaleString('en-IN') : 0}</td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                 </tr>
                 <tr style="height: 28px;">
                   <td style="border: 1px solid black; text-align: center; font-weight: bold; padding: 4px;">4</td>
                   <td style="border: 1px solid black; font-weight: bold; padding: 4px 8px;">பெண் அங்கத்தினர்கள்</td>
-                  <td style="border: 1px solid black; text-align: center; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcFemaleCount > 0 ? calcFemaleCount : 0}</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcFemaleAmt > 0 ? calcFemaleAmt.toLocaleString('en-IN') : 0}</td>
+                  <td style="border: 1px solid black; text-align: center; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px;">${calcFemaleCount > 0 ? calcFemaleCount : 0}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${calcFemaleAmt > 0 ? calcFemaleAmt.toLocaleString('en-IN') : 0}</td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                   <td style="border: 1px solid black; padding: 4px;"></td>
                 </tr>
@@ -1993,9 +1993,9 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               <tbody>
                 ${livestockRowsHtml}
                 <tr style="font-weight: 900; height: 32px; text-align: center;">
-                  <td colspan="4" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 13.5px; padding: 4px 6px;">ஆகமொத்தம்</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
-                  <td style="border: 1px solid black; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
+                  <td colspan="4" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 15.5px; padding: 4px 6px;">ஆகமொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
+                  <td style="border: 1px solid black; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; padding: 4px 8px;">${totalLivestockLoanSum.toLocaleString('en-IN')}</td>
                 </tr>
               </tbody>
             </table>
@@ -2167,15 +2167,57 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               table {
                 border-collapse: collapse;
                 width: 100%;
-                table-layout: fixed;
               }
               th, td {
                 border: 1px solid #000000 !important;
-                padding: 3.5px 3px;
+                padding: 3.5px 4px;
                 color: #000000 !important;
                 box-sizing: border-box;
-                word-break: break-word;
+                word-break: normal;
                 overflow-wrap: break-word;
+              }
+              .ins-details-table {
+                width: 100%;
+                max-width: 100%;
+                table-layout: auto !important;
+                border-collapse: collapse;
+                border: 1.5px solid #000000 !important;
+                empty-cells: show;
+              }
+              .ins-details-table thead {
+                display: table-header-group;
+              }
+              .ins-details-table tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .ins-details-table th, .ins-details-table td {
+                padding: 4px 5px;
+                word-break: normal;
+                overflow-wrap: break-word;
+              }
+              .ins-details-table thead th {
+                border: 1.5px solid #000000 !important;
+              }
+              .col-autofit-nowrap {
+                width: 1%;
+                white-space: nowrap;
+                padding: 4px 5px !important;
+              }
+              .col-autofit-name {
+                width: 20%;
+                min-width: 185px;
+                white-space: normal;
+                word-break: keep-all;
+                overflow-wrap: break-word;
+                padding: 4px 7px !important;
+              }
+              .col-autofit-text {
+                width: auto;
+                white-space: normal;
+                word-break: normal;
+                overflow-wrap: break-word;
+                padding: 4px 6px !important;
               }
             </style>
           </head>
@@ -2188,7 +2230,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
             </div>
 
             <!-- 1. Top Header Matching Uploaded PDF -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12.5px;">
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12.5px; table-layout: fixed;">
               <tbody>
                 <tr>
                   <td colspan="8" style="border: 1px solid black; text-align: center; font-weight: 900; font-size: 14.5px; padding: 4px 6px;">
@@ -2212,19 +2254,19 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 </tr>
                 <tr style="height: 28px;">
                   <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான எண்</td>
-                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${effectiveResNo}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 15px; width: 11%; text-align: center;">${effectiveResNo}</td>
                   <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">தீர்மான தேதி</td>
-                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${effectiveResDate}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 14.5px; width: 15%; text-align: center;">${effectiveResDate}</td>
                   <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா எண்</td>
-                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 13px; width: 11%; text-align: center;">${effectiveDisbNo}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 15px; width: 11%; text-align: center;">${effectiveDisbNo}</td>
                   <td style="border: 1px solid black; padding: 3px 5px; font-weight: bold; width: 14%; text-align: center;">பட்டுவாடா தேதி</td>
-                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 12.5px; width: 15%; text-align: center;">${effectiveDisbDate}</td>
+                  <td style="border: 1px solid black; padding: 3px 5px; font-weight: 800; font-family: monospace; font-size: 14.5px; width: 15%; text-align: center;">${effectiveDisbDate}</td>
                 </tr>
               </tbody>
             </table>
 
             <!-- 2. Two-Column Sender & Receiver Header (அனுப்புநர் & பெறுநர்) matching PDF -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12px;">
+            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; margin-bottom: -1px; font-size: 12px; table-layout: fixed;">
               <tbody>
                 <tr>
                   <td style="width: 50%; border: 1.5px solid #000000; padding: 6px 12px; vertical-align: top;">
@@ -2262,29 +2304,29 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </tbody>
             </table>
 
-            <!-- 4. Insurance Details 13-Column Table matching PDF exactly -->
-            <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0; table-layout: fixed;">
+            <!-- 4. Insurance Details 13-Column Table (Auto-fit columns & widened Name column) -->
+            <table class="ins-details-table" style="width: 100%; border-collapse: collapse; border: 1.5px solid #000000; font-size: 11px; margin-bottom: 0;">
               <thead>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 3.5%;">வ எண்</th>
-                  <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 2px; width: 35%;">உறுப்பினர் விபரம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 13%;">தகப்பனார் /<br/>கணவர் பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 8.5%;">கிராமம்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 12%;">குடும்ப<br/>அட்டை<br/>எண்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 7%;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 3px; width: 10%;">நாமினியின்<br/>பெயர்</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 4.5%;">உறவு</th>
-                  <th rowspan="2" style="border: 1.5px solid #000000; padding: 5px 2px; width: 6.5%;">சந்தாத்<br/>தொகை</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">வ எண்</th>
+                  <th colspan="5" style="border: 1.5px solid #000000; padding: 5px 4px;">உறுப்பினர் விபரம்</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">தகப்பனார் /<br/>கணவர் பெயர்</th>
+                  <th rowspan="2" class="col-autofit-text" style="border: 1.5px solid #000000;">கிராமம்</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">குடும்ப<br/>அட்டை<br/>எண்</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">உடலில்<br/>உள்ள<br/>குறைபாடு</th>
+                  <th rowspan="2" class="col-autofit-text" style="border: 1.5px solid #000000;">நாமினியின்<br/>பெயர்</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">உறவு</th>
+                  <th rowspan="2" class="col-autofit-nowrap" style="border: 1.5px solid #000000;">சந்தாத்<br/>தொகை</th>
                 </tr>
                 <tr style="text-align: center; font-weight: 900; background-color: #ffffff;">
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 5.5%;">அ எண்</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 7%;">SB எண்</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 6%;">ERP</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 2px; width: 4.5%;">Initial</th>
-                  <th style="border: 1.5px solid #000000; padding: 4px 3px; width: 12%;">பெயர்</th>
+                  <th class="col-autofit-nowrap" style="border: 1.5px solid #000000;">அ எண்</th>
+                  <th class="col-autofit-nowrap" style="border: 1.5px solid #000000;">SB எண்</th>
+                  <th class="col-autofit-nowrap" style="border: 1.5px solid #000000;">ERP</th>
+                  <th class="col-autofit-nowrap" style="border: 1.5px solid #000000;">Initial</th>
+                  <th class="col-autofit-name" style="border: 1.5px solid #000000;">பெயர்</th>
                 </tr>
               </thead>
-              <tbody style="font-weight: 600; font-size: 11px;">
+              <tbody style="font-weight: 600; font-size: 13px;">
                 ${insPrintItems.map(({ item: r, totalIns: insAmt }, idx) => {
                   const mem = getMemberForItem(r);
                   const memberAClass = r.aClass || r.aNo || r.memberNo || mem?.aClass || mem?.memberNo || '';
@@ -2298,26 +2340,26 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
 
                   return `
                     <tr>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${idx + 1}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${memberAClass}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${r.sb || ''}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${r.erp || ''}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${initials}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left; font-weight: bold;">${cleanMemberName}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${fatherOrHusband}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${memberVillage}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-family: monospace; font-size: 10.5px;">${rationCardNo}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${disabilityInfo}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 3px; text-align: left;">${nomineeName}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center;">${relationship}</td>
-                      <td style="border: 1px solid #000000; padding: 4px 2px; text-align: center; font-weight: bold;">${insAmt.toLocaleString('en-IN')}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-weight: bold;">${idx + 1}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-weight: bold;">${memberAClass}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center;">${r.sb || ''}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-weight: bold;">${r.erp || ''}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-weight: bold;">${initials}</td>
+                      <td class="col-autofit-name" style="border: 1px solid #000000; text-align: left; font-weight: bold; line-height: 1.35;">${cleanMemberName}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: left;">${fatherOrHusband}</td>
+                      <td class="col-autofit-text" style="border: 1px solid #000000; text-align: center;">${memberVillage}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-family: monospace; font-size: 12.5px;">${rationCardNo}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center;">${disabilityInfo}</td>
+                      <td class="col-autofit-text" style="border: 1px solid #000000; text-align: left; line-height: 1.35;">${nomineeName}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center;">${relationship}</td>
+                      <td class="col-autofit-nowrap" style="border: 1px solid #000000; text-align: center; font-weight: bold;">${insAmt.toLocaleString('en-IN')}</td>
                     </tr>
                   `;
                 }).join('')}
                 <!-- Bottom Grand Total Row matching PDF -->
                 <tr style="font-weight: 900; border-top: 2px solid #000000;">
                   <td colspan="12" style="border: 1px solid #000000; padding: 5px 8px; text-align: right; font-weight: 900;">மொத்தம்</td>
-                  <td style="border: 1px solid #000000; padding: 5px 2px; text-align: center; font-weight: 900; font-size: 12.5px;">
+                  <td class="col-autofit-nowrap" style="border: 1px solid #000000; padding: 5px 4px; text-align: center; font-weight: 900; font-size: 14.5px;">
                     ${totalInsSubscription > 0 ? totalInsSubscription.toLocaleString('en-IN') : '0'}
                   </td>
                 </tr>
@@ -2333,13 +2375,32 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                 <div>தலைவர் / செயலாட்சியர்</div>
               </div>
               <div style="width: 28%; text-align: center;">
-                <div>வட்டார மேற்பார்வையாளர்</div>
+                <div>சரக மேற்பார்வையாளர்</div>
               </div>
             </div>
 
             <script>
+              function autoFitPrintLayout(targetWidth) {
+                try {
+                  document.body.style.zoom = '1';
+                  var availableWidth = targetWidth || document.documentElement.clientWidth || document.body.clientWidth;
+                  if (!availableWidth) return;
+                  var tables = document.querySelectorAll('table');
+                  var maxWidth = 0;
+                  for (var i = 0; i < tables.length; i++) {
+                    if (tables[i].scrollWidth > maxWidth) maxWidth = tables[i].scrollWidth;
+                  }
+                  if (maxWidth > availableWidth) {
+                    var scale = Math.max(0.7, (availableWidth - 2) / maxWidth);
+                    document.body.style.zoom = scale.toFixed(4);
+                  }
+                } catch (e) {}
+              }
+              window.addEventListener('beforeprint', function() { autoFitPrintLayout(1280); });
+              window.addEventListener('resize', function() { autoFitPrintLayout(); });
               window.onload = function() {
-                setTimeout(() => { window.print(); }, 500);
+                autoFitPrintLayout();
+                setTimeout(() => { autoFitPrintLayout(1280); window.print(); }, 450);
               };
             </script>
           </body>
@@ -2862,21 +2923,21 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
         totalMirrorAmtSum += mirrorAmt;
 
         return `
-          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 34px;">
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 13px; height: 34px;">
             <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold;">${idx + 1}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; font-weight: 800; font-family: monospace; font-size: 13.5px; letter-spacing: 0.5px;">${mirrorNo || ''}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 14px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 15.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 15.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; font-weight: 800; font-family: monospace; font-size: 15.5px; letter-spacing: 0.5px;">${mirrorNo || ''}</td>
           </tr>
         `;
       }).join('');
@@ -2965,13 +3026,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </tr>
               <tr style="font-weight: bold; font-size: 11px; text-align: center;">
                 <td style="width: 12%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான எண்</td>
-                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResNo}</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${effectiveResNo}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான தேதி</td>
-                <td style="width: 15%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResDate}</td>
+                <td style="width: 15%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${effectiveResDate}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா எண்</td>
-                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${activeDisbNumber}</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${activeDisbNumber}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா தேதி</td>
-                <td colspan="7" style="border: 1px solid black; font-family: monospace; padding: 4px;">&nbsp;</td>
+                <td colspan="7" style="border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">&nbsp;</td>
               </tr>
             </table>
 
@@ -2991,22 +3052,22 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                   <th style="width: 5.4%; border: 1px solid black; padding: 3px 2px; text-align: center;">புத்தக பாரம்</th>
                   <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">காப்பீடு</th>
                   <th style="width: 9%; border: 1px solid black; padding: 3px 4px;">மொத்த கடன் தொகை</th>
-                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT Amount</th>
-                  <th style="width: 14.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT number</th>
+                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">நிகர பட்டுவாடா தொகை</th>
+                  <th style="width: 14.5%; border: 1px solid black; padding: 3px 4px;">மத்திய வங்கி எண்</th>
                 </tr>
               </thead>
               <tbody>
                 ${itemsRowsHtml}
                 <!-- Totals Row with 'மொத்தம்' matching request -->
-                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 11px; height: 34px;">
-                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
+                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 13px; height: 34px;">
+                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 15.5px;">மொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid black;"></td>
                 </tr>
               </tbody>
@@ -3067,19 +3128,19 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
 
         return `
-          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 34px;">
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 13px; height: 34px;">
             <td style="border: 1px solid black; padding: 4px; font-weight: bold;">${idx + 1}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
-            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.prevLoanNo || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.prevLoanDate ? formatDateDDMMYYYY(item.prevLoanDate) : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${prevAmt ? prevAmt.toLocaleString('en-IN') : '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: 600;">${livestockTypeVal}</td>
-            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 12.5px;">${rawCount}</td>
-            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 14px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 15.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 15.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 14px;">${item.prevLoanNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 14px;">${item.prevLoanDate ? formatDateDDMMYYYY(item.prevLoanDate) : '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${prevAmt ? prevAmt.toLocaleString('en-IN') : '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: 600; font-size: 13px;">${livestockTypeVal}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 14.5px;">${rawCount}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
           </tr>
         `;
       }).join('');
@@ -3166,13 +3227,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
             <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
               <tr>
                 <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
-                <td style="width: 8%; font-family: monospace;">${effectiveResNo}</td>
+                <td style="width: 8%; font-family: monospace; font-size: 13px;">${effectiveResNo}</td>
                 <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
-                <td style="width: 18%; font-family: monospace;">${effectiveResDate}</td>
+                <td style="width: 18%; font-family: monospace; font-size: 13px;">${effectiveResDate}</td>
                 <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
-                <td style="width: 8%; font-family: monospace;">${activeDisbNumber}</td>
+                <td style="width: 8%; font-family: monospace; font-size: 13px;">${activeDisbNumber}</td>
                 <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
-                <td style="width: 18%; font-family: monospace;">&nbsp;</td>
+                <td style="width: 18%; font-family: monospace; font-size: 13px;">&nbsp;</td>
               </tr>
             </table>
 
@@ -3214,12 +3275,12 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               <tbody>
                 ${itemsRowsHtml}
                 <!-- Totals Row -->
-                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 11px; height: 34px;">
-                  <td colspan="8" style="text-align: right; padding: 6px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
-                  <td style="text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalPrevLoan ? totalPrevLoan.toLocaleString('en-IN') : '-'}</td>
+                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 13px; height: 34px;">
+                  <td colspan="8" style="text-align: right; padding: 6px; font-weight: 900; font-size: 15.5px;">மொத்தம்</td>
+                  <td style="text-align: right; padding: 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalPrevLoan ? totalPrevLoan.toLocaleString('en-IN') : '-'}</td>
                   <td></td>
-                  <td style="text-align: center; padding: 6px; font-size: 13px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
-                  <td style="text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
+                  <td style="text-align: center; padding: 6px; font-size: 15px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
+                  <td style="text-align: right; padding: 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
                 </tr>
               </tbody>
             </table>
@@ -3264,6 +3325,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
         return acc + countVal;
       }, 0);
       const totalLoan = printItems.reduce((acc, item) => acc + getItemLoanAmount(item), 0);
+      const maxLoanStrLen = Math.max(
+        9,
+        ...printItems.map(item => (getItemLoanAmount(item) || 0).toLocaleString('en-IN').length),
+        (totalLoan || 0).toLocaleString('en-IN').length
+      );
+      const estLoanPct = Math.min(12, Math.max(6.5, Number((maxLoanStrLen * 0.72 + 1.2).toFixed(1))));
+      const estSignPct = Number((28 - estLoanPct).toFixed(1));
 
       const itemsRowsHtml = printItems.map((item, idx) => {
         const loanAmt = getItemLoanAmount(item);
@@ -3274,17 +3342,17 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
           : (item.acres !== undefined && item.acres !== null && item.acres !== '' ? String(item.acres) : '-');
 
         return `
-          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 36px;">
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 13px; height: 36px;">
             <td style="border: 1px solid black; padding: 4px; font-weight: bold;">${idx + 1}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
-            <td style="border: 1px solid black; padding: 4px; font-weight: 600;">${livestockTypeVal}</td>
-            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 12.5px;">${rawCount}</td>
-            <td style="border: 1px solid black; padding: 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px; min-width: 140px;"></td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-family: monospace; font-size: 14px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 15.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 15.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px; font-weight: 600; font-size: 13px;">${livestockTypeVal}</td>
+            <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold; font-family: monospace; font-size: 14.5px;">${rawCount}</td>
+            <td class="loan-autofit-cell" style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace; white-space: nowrap;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px;"></td>
           </tr>
         `;
       }).join('');
@@ -3371,13 +3439,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
             <table style="width: 100%; margin-bottom: 8px; text-align: center; font-weight: bold; font-size: 11px;">
               <tr>
                 <td style="background: #f5f5f5; width: 12%;">தீர்மான எண்</td>
-                <td style="width: 8%; font-family: monospace;">${effectiveResNo}</td>
+                <td style="width: 8%; font-family: monospace; font-size: 13px;">${effectiveResNo}</td>
                 <td style="background: #f5f5f5; width: 12%;">தீர்மான தேதி</td>
-                <td style="width: 18%; font-family: monospace;">${effectiveResDate}</td>
+                <td style="width: 18%; font-family: monospace; font-size: 13px;">${effectiveResDate}</td>
                 <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா எண்</td>
-                <td style="width: 8%; font-family: monospace;">${activeDisbNumber}</td>
+                <td style="width: 8%; font-family: monospace; font-size: 13px;">${activeDisbNumber}</td>
                 <td style="background: #f5f5f5; width: 12%;">பட்டுவாடா தேதி</td>
-                <td style="width: 18%; font-family: monospace;">&nbsp;</td>
+                <td style="width: 18%; font-family: monospace; font-size: 13px;">&nbsp;</td>
               </tr>
             </table>
 
@@ -3395,30 +3463,42 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </table>
             </div>
 
-            <!-- Main Table without Previous Loan Columns, with Signature Column -->
-            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <!-- Main Table without Previous Loan Columns, with Auto-fit Loan Amount & Expanded Signature Column -->
+            <table id="jabitha-main-table" style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+              <colgroup>
+                <col style="width: 4%;" />
+                <col style="width: 6%;" />
+                <col style="width: 6%;" />
+                <col style="width: 7%;" />
+                <col style="width: 5%;" />
+                <col style="width: 22%;" />
+                <col style="width: 14%;" />
+                <col style="width: 8%;" />
+                <col id="col-loan" style="width: ${estLoanPct}%;" />
+                <col id="col-sign" style="width: ${estSignPct}%;" />
+              </colgroup>
               <thead>
                 <tr style="background: #f5f5f5; text-align: center; font-weight: bold; font-size: 11px; height: 36px;">
-                  <th style="width: 4%;">வ.எண்</th>
-                  <th style="width: 6%;">அ.எண்</th>
-                  <th style="width: 6%;">SB</th>
-                  <th style="width: 7%;">ERP</th>
-                  <th style="width: 5%;">Initial</th>
-                  <th style="width: 22%;">பெயர்</th>
-                  <th style="width: 14%;">கால்நடைகளின் வகை</th>
-                  <th style="width: 8%;">கால்நடைகளின் எண்ணிக்கை</th>
-                  <th style="width: 12%;">கடன் தொகை</th>
-                  <th style="width: 16%;">கையொப்பம்</th>
+                  <th>வ.எண்</th>
+                  <th>அ.எண்</th>
+                  <th>SB</th>
+                  <th>ERP</th>
+                  <th>Initial</th>
+                  <th>பெயர்</th>
+                  <th>கால்நடைகளின் வகை</th>
+                  <th>கால்நடைகளின் எண்ணிக்கை</th>
+                  <th class="loan-autofit-cell" style="white-space: nowrap; padding: 4px 6px;">கடன் தொகை</th>
+                  <th>கையொப்பம்</th>
                 </tr>
               </thead>
               <tbody>
                 ${itemsRowsHtml}
                 <!-- Totals Row -->
-                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 11px; height: 34px;">
-                  <td colspan="6" style="text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
+                <tr style="font-weight: 900; background: #f5f5f5; text-align: center; font-size: 13px; height: 34px;">
+                  <td colspan="6" style="text-align: right; padding: 6px 12px; font-weight: 900; font-size: 15.5px;">மொத்தம்</td>
                   <td style="border: 1px solid black;"></td>
-                  <td style="border: 1px solid black; text-align: center; padding: 6px; font-size: 13px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: center; padding: 6px; font-size: 15px; font-weight: bold; font-family: monospace;">${totalLivestockCount > 0 ? totalLivestockCount : '-'}</td>
+                  <td class="loan-autofit-cell" style="border: 1px solid black; text-align: right; padding: 6px; font-size: 15.5px; font-weight: 800; font-family: monospace; white-space: nowrap;">${totalLoan ? totalLoan.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid black;"></td>
                 </tr>
               </tbody>
@@ -3443,8 +3523,46 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
             </div>
 
             <script>
+              function fitLoanAndSignatureCols() {
+                try {
+                  var table = document.getElementById('jabitha-main-table');
+                  var colLoan = document.getElementById('col-loan');
+                  var colSign = document.getElementById('col-sign');
+                  if (!table || !colLoan || !colSign) return;
+                  var tableWidth = table.getBoundingClientRect().width;
+                  if (!tableWidth) return;
+                  var reservedWidth = tableWidth * 0.28;
+                  var probe = document.createElement('span');
+                  probe.style.position = 'absolute';
+                  probe.style.visibility = 'hidden';
+                  probe.style.whiteSpace = 'nowrap';
+                  probe.style.top = '-9999px';
+                  document.body.appendChild(probe);
+
+                  var maxNeeded = 68;
+                  var cells = table.querySelectorAll('.loan-autofit-cell');
+                  for (var i = 0; i < cells.length; i++) {
+                    var cs = window.getComputedStyle(cells[i]);
+                    probe.style.fontFamily = cs.fontFamily;
+                    probe.style.fontSize = cs.fontSize;
+                    probe.style.fontWeight = cs.fontWeight;
+                    probe.textContent = (cells[i].textContent || '').trim();
+                    var textW = probe.getBoundingClientRect().width + 16;
+                    if (textW > maxNeeded) maxNeeded = textW;
+                  }
+                  document.body.removeChild(probe);
+
+                  var finalLoanW = Math.min(Math.ceil(maxNeeded), Math.floor(reservedWidth * 0.65));
+                  var finalSignW = Math.max(120, Math.floor(reservedWidth - finalLoanW));
+                  colLoan.style.width = finalLoanW + 'px';
+                  colSign.style.width = finalSignW + 'px';
+                } catch (e) {}
+              }
+              window.addEventListener('beforeprint', fitLoanAndSignatureCols);
+              window.addEventListener('resize', fitLoanAndSignatureCols);
               window.onload = function() {
-                setTimeout(() => { window.print(); }, 400);
+                fitLoanAndSignatureCols();
+                setTimeout(() => { fitLoanAndSignatureCols(); window.print(); }, 400);
               };
             </script>
           </body>
@@ -3535,20 +3653,20 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
         totalMirrorAmtSum += mirrorAmt;
 
         return `
-          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 11px; height: 38px;">
+          <tr style="text-align: center; border-bottom: 1px solid black; font-size: 13px; height: 38px;">
             <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold;">${idx + 1}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 12px;">${item.sb || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 12.5px;">${item.erp || '-'}</td>
-            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 13.5px; text-align: center;">${initial}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
-            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 13.5px; font-weight: 800; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.aClass || item.aNo || item.memberNo || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-family: monospace; font-size: 14px;">${item.sb || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: bold; font-family: monospace; font-size: 14.5px;">${item.erp || '-'}</td>
+            <td style="border: 1px solid black; padding: 4px 2px; font-weight: 800; font-size: 15.5px; text-align: center;">${initial}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; font-weight: 800; font-size: 15.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanName}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${curShare ? curShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${societyShare ? societyShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${mdccShare ? mdccShare.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${bookFee ? bookFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 4px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${insFee ? insFee.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 15.5px; font-weight: 800; font-family: monospace;">${loanAmt ? loanAmt.toLocaleString('en-IN') : '0'}</td>
+            <td style="border: 1px solid black; padding: 4px 6px; text-align: right; font-size: 15.5px; font-weight: normal; font-family: monospace;">${mirrorAmt ? mirrorAmt.toLocaleString('en-IN') : '0'}</td>
             <td style="border: 1px solid black; padding: 4px; min-width: 140px;"></td>
           </tr>
         `;
@@ -3628,7 +3746,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </tr>
               <tr>
                 <td colspan="14" style="text-align: center; padding: 3px 6px; border: 1.5px solid black; font-weight: 900; font-size: 13.5px;">
-                  KCC AH ல் கால்நடை பராமரிப்பு கடன் பட்டுவாடா ஒப்பந்தம்
+                  KCC AH ல் கால்நடை பராமரிப்பு கடன் பட்டுவாடா விபரம்
                 </td>
               </tr>
               <tr>
@@ -3638,13 +3756,13 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
               </tr>
               <tr style="font-weight: bold; font-size: 11px; text-align: center;">
                 <td style="width: 12%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான எண்</td>
-                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResNo}</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${effectiveResNo}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">தீர்மான தேதி</td>
-                <td style="width: 15%; border: 1px solid black; font-family: monospace; padding: 4px;">${effectiveResDate}</td>
+                <td style="width: 15%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${effectiveResDate}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா எண்</td>
-                <td style="width: 8%; border: 1px solid black; font-family: monospace; padding: 4px;">${activeDisbNumber}</td>
+                <td style="width: 8%; border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">${activeDisbNumber}</td>
                 <td style="width: 14%; border: 1px solid black; background: #fdfdfd; padding: 4px;">பட்டுவாடா தேதி</td>
-                <td colspan="7" style="border: 1px solid black; font-family: monospace; padding: 4px;">&nbsp;</td>
+                <td colspan="7" style="border: 1px solid black; font-family: monospace; font-size: 13px; padding: 4px;">&nbsp;</td>
               </tr>
             </table>
 
@@ -3664,22 +3782,22 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
                   <th style="width: 5.4%; border: 1px solid black; padding: 3px 2px; text-align: center;">புத்தக பாரம்</th>
                   <th style="width: 4.5%; border: 1px solid black; padding: 3px 2px;">காப்பீடு</th>
                   <th style="width: 9%; border: 1px solid black; padding: 3px 4px;">மொத்த கடன் தொகை</th>
-                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">MIRROR ACCOUNT Amount</th>
+                  <th style="width: 9.5%; border: 1px solid black; padding: 3px 4px;">நிகர பட்டுவாடா தொகை</th>
                   <th style="width: 14.5%; border: 1px solid black; padding: 3px 4px;">கையொப்பம்</th>
                 </tr>
               </thead>
               <tbody>
                 ${itemsRowsHtml}
                 <!-- Totals Row with 'மொத்தம்' matching request -->
-                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 11px; height: 34px;">
-                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 13.5px;">மொத்தம்</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
-                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 13.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
+                <tr style="font-weight: 900; background: #ffffff; text-align: center; font-size: 13px; height: 34px;">
+                  <td colspan="6" style="border: 1px solid black; text-align: right; padding: 6px 12px; font-weight: 900; font-size: 15.5px;">மொத்தம்</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalCurrentShare ? totalCurrentShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalSocietyShare ? totalSocietyShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalMdccShare ? totalMdccShare.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalBookFee ? totalBookFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalInsFee ? totalInsFee.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalLoanSum ? totalLoanSum.toLocaleString('en-IN') : '0'}</td>
+                  <td style="border: 1px solid black; text-align: right; padding: 4px 6px; font-size: 15.5px; font-weight: 800; font-family: monospace;">${totalMirrorAmtSum ? totalMirrorAmtSum.toLocaleString('en-IN') : '0'}</td>
                   <td style="border: 1px solid black;"></td>
                 </tr>
               </tbody>
@@ -4383,7 +4501,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const headers = [
         'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்',
         'தற்போது பிடிக்கும் பங்கு தொகை', 'சங்க பங்கு தொகை (40%)', 'MDCC Bank பங்கு தொகை (60%)',
-        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'MIRROR ACCOUNT Amount', 'கையொப்பம்'
+        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'நிகர பட்டுவாடா தொகை', 'கையொப்பம்'
       ];
       const seenAh6ExportMembers = new Set<string>();
       const rows = exportItems.map((item, index) => {
@@ -4467,7 +4585,7 @@ export const AHDisbursementScreen: React.FC<AHDisbursementScreenProps> = ({
       const headers = [
         'வ.எண்', 'அ.எண்', 'SB', 'ERP', 'Initial', 'பெயர்',
         'தற்போது பிடிக்கும் பங்கு தொகை', 'சங்க பங்கு தொகை (40%)', 'MDCC Bank பங்கு தொகை (60%)',
-        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'MIRROR ACCOUNT Amount', 'MIRROR ACCOUNT number'
+        'புத்தக பாரம்', 'காப்பீடு', 'மொத்த கடன் தொகை', 'நிகர பட்டுவாடா தொகை', 'மத்திய வங்கி எண்'
       ];
       const seenAh2ExportMembers = new Set<string>();
       const rows = exportItems.map((item, index) => {
