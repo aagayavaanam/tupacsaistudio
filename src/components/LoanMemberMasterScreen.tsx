@@ -1154,6 +1154,7 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#007A4D] text-white border-b border-[#005c3a] font-bold whitespace-nowrap sticky top-0 z-10 shadow-xs">
+                  <th className="p-3 text-center w-14">பார்க்க</th>
                   <th className="p-3 text-center w-12">வ.எண்</th>
                   <th className="p-3">A Class</th>
                   <th className="p-3">SB</th>
@@ -1186,6 +1187,15 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                       }}
                       className="hover:bg-[#D1EAE0]/30 transition-colors whitespace-nowrap cursor-pointer group"
                     >
+                      <td className="p-2 text-center bg-[#FAF9F5] group-hover:bg-[#D1EAE0]/40" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setSelectedMemberDetail(m)}
+                          className="p-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-md transition-colors cursor-pointer inline-flex items-center justify-center"
+                          title="முழு விபரம் மேலடுக்கில் பார்க்க"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
                       <td className="p-3 text-center text-stone-500 font-mono font-bold bg-[#FAF9F5] group-hover:bg-[#D1EAE0]/40">
                         {idx + 1}
                       </td>
@@ -1230,13 +1240,6 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setSelectedMemberDetail(m)}
-                            className="p-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-md transition-colors cursor-pointer"
-                            title="முழு விபரம் மேலடுக்கில் பார்க்க"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
                             onClick={() => handlePrintDossier(m)}
                             className="p-1.5 bg-stone-100 hover:bg-stone-700 hover:text-white text-stone-700 rounded-md transition-colors cursor-pointer"
                             title="உறுப்பினர் விபர அட்டை அச்சிடு"
@@ -1257,7 +1260,7 @@ export const LoanMemberMasterScreen: React.FC<LoanMemberMasterScreenProps> = ({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={19} className="p-10 text-center bg-[#FAF9F5]">
+                    <td colSpan={21} className="p-10 text-center bg-[#FAF9F5]">
                       <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                         <div className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-400">
                           <Search className="w-5 h-5" />

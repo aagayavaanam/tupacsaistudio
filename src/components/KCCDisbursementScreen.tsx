@@ -1282,7 +1282,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
               .sign-grid {
                 display: flex;
                 justify-content: space-between;
-                margin-top: 35px;
+                margin-top: ${isFirstPageForm ? '65px' : '35px'};
                 margin-bottom: 30px;
                 padding: 0 20px;
                 font-weight: 900;
