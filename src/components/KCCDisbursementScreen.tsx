@@ -2773,7 +2773,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
         const { initial, name } = parseInitialAndName(item);
         const acresVal = parseFloat(item.acres || '0') || 0;
         const acresDisplay = acresVal > 0 ? (Number.isInteger(acresVal) ? acresVal.toString() : acresVal.toString()) : (item.acres || '-');
-        const loanDetailText = item.loanDetail || item.natureOfLoan || 'நபர் விபரம்';
+        const proofDetailText = String(item.guaranteeType || (item as any)['ஆதார விபரம்'] || (item as any).securityType || '').trim() || '-';
 
         return `
           <tr style="text-align: center; height: 32px; font-size: 11.5px;">
@@ -2787,7 +2787,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
             <td style="border: 1.5px solid black; padding: 4px 4px; text-align: center;">${acresDisplay}</td>
             <td style="border: 1.5px solid black; padding: 4px 4px;">${item.crop || '-'}</td>
             <td style="border: 1.5px solid black; padding: 4px 6px; text-align: center; font-weight: bold;">${loanAmt}</td>
-            <td style="border: 1.5px solid black; padding: 4px 4px; font-size: 11px;">${loanDetailText}</td>
+            <td style="border: 1.5px solid black; padding: 4px 4px; font-size: 11px;">${proofDetailText}</td>
           </tr>
         `;
       }).join('');
@@ -2924,7 +2924,7 @@ export const KCCDisbursementScreen: React.FC<KCCDisbursementScreenProps> = ({
                     <th style="width: 48px; border: 1.5px solid #000000; padding: 4px 2px;">பரப்பு</th>
                     <th style="width: 58px; border: 1.5px solid #000000; padding: 4px 2px;">பயிர்</th>
                     <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 4px;">கடன் தொகை</th>
-                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 4px;">கடன் விபரம்</th>
+                    <th style="width: 75px; border: 1.5px solid #000000; padding: 4px 4px;">ஆதார விபரம்</th>
                   </tr>
                 </thead>
                 <tbody>
